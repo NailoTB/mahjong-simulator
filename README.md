@@ -17,6 +17,7 @@ Boardstate:
 Player struct:
   + [mut int] Points
   + [mut int] Seat wind
+  + [mut List[Hai]] Hand
   + [mut List[Hai]] Discards
   + [const List[Strategy]] DiscardStrategies
   + [const List[Strategy]] CallingStrategies
