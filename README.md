@@ -13,6 +13,7 @@ Boardstate:
   + [mut List[Hai]] DoraIndicator
   + [mut int] Honba
   + [mut int] Riichi sticks
+  + [mut int] Round Wind
 
 Player struct:
   + [mut int] Points
