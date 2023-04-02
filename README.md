@@ -18,5 +18,7 @@ Player struct:
   + [mut int] Points
   + [mut int] Seat wind
   + [mut List[Hai]] Discards
-  + [mut List[Hai]] Strategies
+  + [mut List[Strategy]] DiscardStrategies
+  + [mut List[Strategy]] CallingStrategies
   + [mut bool] Riichistate
+  + [mut bool] OpenHand
