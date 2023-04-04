@@ -1,18 +1,35 @@
 use rand::seq::SliceRandom;
 
+const DUPLICATE_TILES: usize = 4;
+
 fn main() {
-    //let wall = initialize_wall();
-    let (wall, wall_dead) = initialize_wall();
+    let (mut player_a, mut player_b, mut player_c, mut player_d) = initialize_players();
+
+    let (mut wall, wall_dead) = initialize_wall();
+
+    (
+        wall,
+        player_a.hand,
+        player_b.hand,
+        player_c.hand,
+        player_d.hand,
+    ) = draw_hands(wall);
 
     println!("Wall:");
 
-    for tile in &wall {
+    for tile in wall {
         println!("{:?}", tile);
     }
 
     println!("Dead wall:");
 
     for tile in &wall_dead {
+        println!("{:?}", tile);
+    }
+
+    println!("Player A's hand:");
+
+    for tile in player_a.hand {
         println!("{:?}", tile);
     }
 }
@@ -57,7 +74,7 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>) {
 
     wall = wall
         .iter()
-        .flat_map(|&x| std::iter::repeat(x).take(4))
+        .flat_map(|&x| std::iter::repeat(x).take(DUPLICATE_TILES))
         .collect();
 
     let mut rng = rand::thread_rng();
@@ -66,4 +83,68 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>) {
     let wall_dead = wall.split_off(wall.len() - 14);
 
     (wall, wall_dead)
+}
+
+#[derive(Debug)]
+enum SeatWind {
+    East,
+    South,
+    West,
+    North,
+}
+
+#[derive(Debug)]
+struct Player {
+    points: i32,
+    hand: Vec<MahjongTile>,
+    dicards: Vec<MahjongTile>,
+    seat_wind: SeatWind,
+}
+impl Default for Player {
+    fn default() -> Player {
+        Player {
+            points: 25000,
+            hand: Vec::new(),
+            dicards: Vec::new(),
+            seat_wind: SeatWind::East,
+        }
+    }
+}
+
+type Players = (Player, Player, Player, Player);
+
+fn initialize_players() -> Players {
+    let a: Player = Player {
+        ..Default::default()
+    };
+    let b: Player = Player {
+        seat_wind: SeatWind::South,
+        ..Default::default()
+    };
+    let c: Player = Player {
+        seat_wind: SeatWind::West,
+        ..Default::default()
+    };
+    let d: Player = Player {
+        seat_wind: SeatWind::North,
+        ..Default::default()
+    };
+
+    (a, b, c, d)
+}
+
+type Hands = (
+    Vec<MahjongTile>, // Wall
+    Vec<MahjongTile>,
+    Vec<MahjongTile>,
+    Vec<MahjongTile>,
+    Vec<MahjongTile>,
+);
+
+fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
+    let a = wall.split_off(wall.len() - 13);
+    let b = wall.split_off(wall.len() - 13);
+    let c = wall.split_off(wall.len() - 13);
+    let d = wall.split_off(wall.len() - 13);
+    (wall, a, b, c, d)
 }
