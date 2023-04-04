@@ -3,8 +3,8 @@
 Some ideas for general structure:
 
 Tile (Hai) struct:
-  + [const int or string] Suit (m, p, s, z)
-  + [const int] value (1 - 9) for m,p,s and (1 - 7) for z (eswn, haku hatu chuu)
+  + [enum] Suit (m, p, s, k, s)
+  + [const int] value (1 - 9) for m,p,s (1 - 4) for k and (1 - 3) for s
   + [mut bool] dora
 
 Boardstate:
