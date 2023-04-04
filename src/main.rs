@@ -5,7 +5,7 @@ const DUPLICATE_TILES: usize = 4;
 fn main() {
     let (mut player_a, mut player_b, mut player_c, mut player_d) = initialize_players();
 
-    let (mut wall, wall_dead) = initialize_wall();
+    let (mut wall, wall_dead, dora_indicators) = initialize_wall();
 
     (
         wall,
@@ -14,27 +14,24 @@ fn main() {
         player_c.hand,
         player_d.hand,
     ) = draw_hands(wall);
+    let mut game_state = GameState{players:(player_a, player_b, player_c, player_d), wall, wall_dead, dora_indicators, dora_index:0};
+    flip_dora_indicator( &mut game_state);
 
+    println!("{:?}",game_state.dora_indicators[game_state.dora_index]);
     println!("Wall:");
 
-    for tile in wall {
+    for tile in game_state.wall {
         println!("{:?}", tile);
     }
 
     println!("Dead wall:");
 
-    for tile in &wall_dead {
-        println!("{:?}", tile);
-    }
-
-    println!("Player A's hand:");
-
-    for tile in player_a.hand {
+    for tile in game_state.wall_dead {
         println!("{:?}", tile);
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum Suit {
     Manzu,
     Pinzu,
@@ -50,7 +47,7 @@ struct MahjongTile {
     is_dora: bool,
 }
 
-fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>) {
+fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
     let mut wall: Vec<MahjongTile> = Vec::new();
 
     for suit_index in 1..=5 {
@@ -80,9 +77,10 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>) {
     let mut rng = rand::thread_rng();
     wall.shuffle(&mut rng);
 
-    let wall_dead = wall.split_off(wall.len() - 14);
+    let mut wall_dead = wall.split_off(wall.len() - 14);
+    let dora_indicators = wall_dead.split_off(wall_dead.len() - 10);
 
-    (wall, wall_dead)
+    (wall, wall_dead, dora_indicators)
 }
 
 #[derive(Debug)]
@@ -97,7 +95,7 @@ enum SeatWind {
 struct Player {
     points: i32,
     hand: Vec<MahjongTile>,
-    dicards: Vec<MahjongTile>,
+    discards: Vec<MahjongTile>,
     seat_wind: SeatWind,
 }
 impl Default for Player {
@@ -105,7 +103,7 @@ impl Default for Player {
         Player {
             points: 25000,
             hand: Vec::new(),
-            dicards: Vec::new(),
+            discards: Vec::new(),
             seat_wind: SeatWind::East,
         }
     }
@@ -133,6 +131,15 @@ fn initialize_players() -> Players {
     (a, b, c, d)
 }
 
+#[derive(Debug)]
+struct GameState {
+    players: (Player, Player, Player, Player),
+    wall: Vec<MahjongTile>,
+    wall_dead: Vec<MahjongTile>,
+    dora_indicators: Vec<MahjongTile>,
+    dora_index: usize,
+}
+
 type Hands = (
     Vec<MahjongTile>, // Wall
     Vec<MahjongTile>,
@@ -147,4 +154,32 @@ fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     let c = wall.split_off(wall.len() - 13);
     let d = wall.split_off(wall.len() - 13);
     (wall, a, b, c, d)
+}
+
+fn flip_dora_indicator(game_state: &mut GameState
+) {
+    let dora_indicator: &MahjongTile = &game_state.dora_indicators[game_state.dora_index];
+    let dora_suit: Suit = dora_indicator.suit;
+
+    let suit_modulo = match dora_suit {
+        Suit::Manzu | Suit::Pinzu | Suit::Souzu => 9,
+        Suit::Kaze => 4,
+        Suit::Sangen => 3,
+    };
+
+    let dora_value: u8 = (dora_indicator.value) % (suit_modulo) + 1;
+    change_dora_bool(&mut game_state.wall, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.wall_dead, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.dora_indicators, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players.0.hand, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players.1.hand, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players.2.hand, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players.3.hand, dora_suit, dora_value); //what a mess
+
+}
+
+fn change_dora_bool(tile_list: &mut [MahjongTile], dora_suit: Suit, dora_value: u8) {
+    for tile in tile_list.iter_mut().filter(|tile| tile.suit == dora_suit && tile.value == dora_value) {
+        tile.is_dora = true;
+    }
 }
