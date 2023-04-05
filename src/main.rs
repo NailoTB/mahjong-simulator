@@ -1,4 +1,5 @@
 use rand::seq::SliceRandom;
+use std::cmp::{Ordering, PartialOrd};
 
 const DUPLICATE_TILES: usize = 4;
 
@@ -25,10 +26,10 @@ fn main() {
 
     flip_dora_indicator(&mut game_state);
 
-    game_state.players[0].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
-    game_state.players[1].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
-    game_state.players[2].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
-    game_state.players[3].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
+    game_state.players[0].hand.sort();
+    game_state.players[1].hand.sort();
+    game_state.players[2].hand.sort();
+    game_state.players[3].hand.sort();
 
     println!(
         "Dora Indicator: \n{:?}",
@@ -73,7 +74,7 @@ fn main() {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Suit {
     Manzu,
     Pinzu,
@@ -82,11 +83,26 @@ enum Suit {
     Sangen,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Ord, Eq)]
 struct MahjongTile {
     suit: Suit,
     value: u8,
     is_dora: bool,
+}
+
+impl PartialOrd for MahjongTile {
+    fn partial_cmp(&self, other: &MahjongTile) -> Option<Ordering> {
+        match self.suit.partial_cmp(&other.suit) {
+            Some(Ordering::Equal) => self.value.partial_cmp(&other.value),
+            other => other,
+        }
+    }
+}
+
+impl PartialEq for MahjongTile {
+    fn eq(&self, other: &Self) -> bool {
+        self.suit == other.suit && self.value == other.value
+    }
 }
 
 fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
