@@ -1,6 +1,6 @@
+use itertools::Itertools;
 use rand::seq::SliceRandom;
 use std::cmp::{Ordering, PartialOrd};
-
 const DUPLICATE_TILES: usize = 4;
 
 fn main() {
@@ -31,15 +31,21 @@ fn main() {
     game_state.players[2].hand.sort();
     game_state.players[3].hand.sort();
 
+    let testfunctio = find_pairs_melds(&game_state.players[0]);
+    for res in testfunctio {
+        println!("{:?}", res);
+    }
+
     println!(
         "Dora Indicator: \n{:?}",
         game_state.dora_indicators[game_state.dora_index]
     );
-    println!("Wall:");
 
-    for tile in &game_state.wall {
-        println!("{:?}", tile);
-    }
+    //println!("Wall:");
+    //
+    //for tile in &game_state.wall {
+    //    println!("{:?}", tile);
+    //}
 
     println!("Player A's hand:");
     for tile in &game_state.players[0].hand {
@@ -248,4 +254,46 @@ fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>) {
     if let Some(tile) = hand_from.pop() {
         hand_to.push(tile);
     }
+}
+
+fn find_pairs_melds(player: &Player) -> Vec<Vec<MahjongTile>> {
+    let mut results = Vec::new();
+    let hand = &player.hand;
+    for suitloop in [
+        Suit::Manzu,
+        Suit::Pinzu,
+        Suit::Souzu,
+        Suit::Kaze,
+        Suit::Sangen,
+    ] {
+        let suit_tiles: Vec<_> = hand
+            .iter()
+            .filter(|&tile| tile.suit == suitloop)
+            .cloned()
+            .collect();
+        let threes = suit_tiles.iter().combinations(3);
+        let pairs = suit_tiles.iter().combinations(2);
+        for three in threes {
+            let three_vec: Vec<_> = three.into_iter().cloned().collect();
+
+            if three_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&three_vec) {
+                results.push(three_vec);
+            } else if three_vec[2].value - three_vec[0].value == 2
+                && three_vec[2].value - three_vec[1].value == 1
+                && suitloop != Suit::Kaze
+                && suitloop != Suit::Sangen
+                && !results.contains(&three_vec)
+            {
+                results.push(three_vec);
+            }
+        }
+        for pair in pairs {
+            let pair_vec: Vec<_> = pair.into_iter().cloned().collect();
+
+            if pair_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&pair_vec) {
+                results.push(pair_vec);
+            }
+        }
+    }
+    results
 }
