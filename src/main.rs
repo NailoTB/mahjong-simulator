@@ -276,13 +276,12 @@ fn find_pairs_melds(player: &Player) -> Vec<Vec<MahjongTile>> {
         for three in threes {
             let three_vec: Vec<_> = three.into_iter().cloned().collect();
 
-            if three_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&three_vec) {
-                results.push(three_vec);
-            } else if three_vec[2].value - three_vec[0].value == 2
-                && three_vec[2].value - three_vec[1].value == 1
-                && suitloop != Suit::Kaze
-                && suitloop != Suit::Sangen
-                && !results.contains(&three_vec)
+            if (three_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&three_vec))
+                || (three_vec[2].value - three_vec[0].value == 2
+                    && three_vec[2].value - three_vec[1].value == 1
+                    && suitloop != Suit::Kaze
+                    && suitloop != Suit::Sangen
+                    && !results.contains(&three_vec))
             {
                 results.push(three_vec);
             }
