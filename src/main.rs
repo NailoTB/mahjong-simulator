@@ -14,20 +14,57 @@ fn main() {
         player_c.hand,
         player_d.hand,
     ) = draw_hands(wall);
-    let mut game_state = GameState{players:(player_a, player_b, player_c, player_d), wall, wall_dead, dora_indicators, dora_index:0};
-    flip_dora_indicator( &mut game_state);
 
-    println!("{:?}",game_state.dora_indicators[game_state.dora_index]);
+    let mut game_state = GameState {
+        players: [player_a, player_b, player_c, player_d],
+        wall,
+        wall_dead,
+        dora_indicators,
+        dora_index: 0,
+    };
+
+    flip_dora_indicator(&mut game_state);
+
+    println!(
+        "Dora Indicator: \n{:?}",
+        game_state.dora_indicators[game_state.dora_index]
+    );
     println!("Wall:");
 
-    for tile in game_state.wall {
+    for tile in &game_state.wall {
         println!("{:?}", tile);
     }
 
-    println!("Dead wall:");
-
-    for tile in game_state.wall_dead {
+    println!("Player A's hand:");
+    for tile in &game_state.players[0].hand {
         println!("{:?}", tile);
+    }
+
+    let mut round_ongoing = true;
+    let mut current_player_index: usize = 0;
+
+    while round_ongoing {
+        // Current player draws a tile
+        move_tile(
+            &mut game_state.wall,
+            &mut game_state.players[current_player_index].hand,
+        );
+        // Current player may tsumo
+        // Current player may kan
+        // Current player discards a tile
+        move_tile(
+            &mut game_state.players[current_player_index].hand,
+            &mut game_state.players[current_player_index].discards,
+        );
+        // Other players may ron
+        // Other players may pon
+        // Previous player may chi
+        // Check if the wall is empty
+        if game_state.wall.is_empty() {
+            round_ongoing = false;
+        }
+        // Pass turn to the next player
+        current_player_index = (current_player_index + 1) % 4;
     }
 }
 
@@ -133,7 +170,7 @@ fn initialize_players() -> Players {
 
 #[derive(Debug)]
 struct GameState {
-    players: (Player, Player, Player, Player),
+    players: [Player; 4],
     wall: Vec<MahjongTile>,
     wall_dead: Vec<MahjongTile>,
     dora_indicators: Vec<MahjongTile>,
@@ -156,8 +193,7 @@ fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     (wall, a, b, c, d)
 }
 
-fn flip_dora_indicator(game_state: &mut GameState
-) {
+fn flip_dora_indicator(game_state: &mut GameState) {
     let dora_indicator: &MahjongTile = &game_state.dora_indicators[game_state.dora_index];
     let dora_suit: Suit = dora_indicator.suit;
 
@@ -168,18 +204,27 @@ fn flip_dora_indicator(game_state: &mut GameState
     };
 
     let dora_value: u8 = (dora_indicator.value) % (suit_modulo) + 1;
+
     change_dora_bool(&mut game_state.wall, dora_suit, dora_value);
     change_dora_bool(&mut game_state.wall_dead, dora_suit, dora_value);
     change_dora_bool(&mut game_state.dora_indicators, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players.0.hand, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players.1.hand, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players.2.hand, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players.3.hand, dora_suit, dora_value); //what a mess
-
+    change_dora_bool(&mut game_state.players[0].hand, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players[1].hand, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players[2].hand, dora_suit, dora_value);
+    change_dora_bool(&mut game_state.players[3].hand, dora_suit, dora_value); //what a mess
 }
 
 fn change_dora_bool(tile_list: &mut [MahjongTile], dora_suit: Suit, dora_value: u8) {
-    for tile in tile_list.iter_mut().filter(|tile| tile.suit == dora_suit && tile.value == dora_value) {
+    for tile in tile_list
+        .iter_mut()
+        .filter(|tile| tile.suit == dora_suit && tile.value == dora_value)
+    {
         tile.is_dora = true;
+    }
+}
+
+fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>) {
+    if let Some(tile) = hand_from.pop() {
+        hand_to.push(tile);
     }
 }
