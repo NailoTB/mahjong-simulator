@@ -25,6 +25,11 @@ fn main() {
 
     flip_dora_indicator(&mut game_state);
 
+    game_state.players[0].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
+    game_state.players[1].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
+    game_state.players[2].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
+    game_state.players[3].hand.sort_by(|a, b| a.suit.cmp(&b.suit).then(a.value.cmp(&b.value)));
+
     println!(
         "Dora Indicator: \n{:?}",
         game_state.dora_indicators[game_state.dora_index]
@@ -68,7 +73,7 @@ fn main() {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
 enum Suit {
     Manzu,
     Pinzu,
@@ -77,7 +82,7 @@ enum Suit {
     Sangen,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
 struct MahjongTile {
     suit: Suit,
     value: u8,
