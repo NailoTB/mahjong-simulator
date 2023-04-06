@@ -31,7 +31,16 @@ fn main() {
     game_state.players[2].hand.sort();
     game_state.players[3].hand.sort();
 
-    let testfunctio = find_pairs_melds(&game_state.players[0]);
+    let (test_meld1, test_meld2) = find_pairs_melds(&game_state.players[0]);
+    println!(
+        "Melds in A's hand (threes: {} pairs: {}):",
+        test_meld1.len(),
+        test_meld2.len()
+    );
+    let mut testfunctio = Vec::new();
+    testfunctio.extend(test_meld1);
+    testfunctio.extend(test_meld2);
+
     for res in testfunctio {
         println!("{:?}", res);
     }
@@ -256,7 +265,9 @@ fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>) {
     }
 }
 
-fn find_pairs_melds(player: &Player) -> Vec<Vec<MahjongTile>> {
+fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) {
+    let (mut result_threes, mut result_pairs): (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) =
+        (Vec::new(), Vec::new());
     let mut results = Vec::new();
     let hand = &player.hand;
     for suitloop in [
@@ -283,16 +294,18 @@ fn find_pairs_melds(player: &Player) -> Vec<Vec<MahjongTile>> {
                     && suitloop != Suit::Sangen
                     && !results.contains(&three_vec))
             {
-                results.push(three_vec);
+                results.push(three_vec.clone());
+                result_threes.push(three_vec);
             }
         }
         for pair in pairs {
             let pair_vec: Vec<_> = pair.into_iter().cloned().collect();
 
             if pair_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&pair_vec) {
-                results.push(pair_vec);
+                results.push(pair_vec.clone());
+                result_pairs.push(pair_vec);
             }
         }
     }
-    results
+    (result_threes, result_pairs)
 }
