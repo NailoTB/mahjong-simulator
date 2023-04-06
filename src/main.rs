@@ -61,8 +61,9 @@ fn main() {
 
     while round_ongoing {
         // Current player draws a tile
-
+        game_state.players[0].hand.sort();
         let (tenpai0, waits0) = check_tenpai(&game_state.players[0]);
+
         if tenpai0 {
             println!("Player A's hand:");
             for tile in &game_state.players[0].hand {
@@ -224,9 +225,9 @@ fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongT
         let pairs = suit_tiles.iter().combinations(2);
         for three in threes {
             let three_vec: Vec<_> = three.into_iter().cloned().collect();
-
+            
             if (three_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&three_vec))
-                || (three_vec[2].value - three_vec[0].value == 2
+                || ( three_vec[2].value - three_vec[0].value == 2
                     && three_vec[2].value - three_vec[1].value == 1
                     && suitloop != Suit::Kaze
                     && suitloop != Suit::Sangen
@@ -249,7 +250,7 @@ fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongT
 }
 
 fn check_tenpai(player: &Player) -> (bool, Vec<MahjongTile>) {
-    let (threes, pairs) = find_pairs_melds(player);
+    let (threes, pairs) = find_pairs_melds(&player);
     let mut temp_hand = player.hand.clone();
 
     //Seven pairs
@@ -301,7 +302,7 @@ fn check_tenpai(player: &Player) -> (bool, Vec<MahjongTile>) {
             && temp_hand[0].suit != Suit::Kaze
         {
             if temp_hand[1].value - temp_hand[0].value == 1 {
-                //Haamutiiliä, vähä sus. Jos ekvivalenssin tiilien välille saa sillee et ne ei välitä dorasuudest nii ok.
+                //Ghost tiles, ok if doraness is not taken into account in equivalences.
 
                 //Ryanmen & Penchan
                 let mut waits = vec![
@@ -325,21 +326,18 @@ fn check_tenpai(player: &Player) -> (bool, Vec<MahjongTile>) {
                 return (true, waits);
             }
             if temp_hand[1].value - temp_hand[0].value == 2 {
-
                 //Kanchan
-                let waits = vec![
-                    MahjongTile {
-                        value: temp_hand[1].value - 1,
-                        suit: temp_hand[1].suit,
-                        is_dora: false,
-                    },
-                ];
+                let waits = vec![MahjongTile {
+                    value: temp_hand[1].value - 1,
+                    suit: temp_hand[1].suit,
+                    is_dora: false,
+                }];
                 return (true, waits);
             }
         }
         //To do shabo
-        if temp_hand.len() == 4{
-
+        if temp_hand.len() == 4 {
+            return (false, temp_hand);
         }
     }
     (false, temp_hand)
