@@ -61,16 +61,18 @@ fn main() {
 
     while round_ongoing {
         // Current player draws a tile
-        move_tile(
+        draw_tile(
             &mut game_state.wall,
             &mut game_state.players[current_player_index].hand,
         );
         // Current player may tsumo
         // Current player may kan
         // Current player discards a tile
+        let strategy_input = game_state.clone();
         move_tile(
             &mut game_state.players[current_player_index].hand,
             &mut game_state.players[current_player_index].discards,
+            (game_state.players[current_player_index].strategy.discard)(strategy_input),
         );
         // Other players may ron
         // Other players may pon
@@ -178,10 +180,15 @@ fn change_dora_bool(tile_list: &mut [MahjongTile], dora_suit: Suit, dora_value: 
     }
 }
 
-fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>) {
+fn draw_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>) {
     if let Some(tile) = hand_from.pop() {
         hand_to.push(tile);
     }
+}
+
+fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>, tile_index: usize) {
+    let tile = hand_from.remove(tile_index);
+    hand_to.push(tile);
 }
 
 fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) {
