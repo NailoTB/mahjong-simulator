@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use rand::seq::SliceRandom;
-use std::cmp::{Ordering, PartialOrd};
+mod types;
+use types::*;
 const DUPLICATE_TILES: usize = 4;
 
 fn main() {
@@ -50,12 +51,6 @@ fn main() {
         game_state.dora_indicators[game_state.dora_index]
     );
 
-    //println!("Wall:");
-    //
-    //for tile in &game_state.wall {
-    //    println!("{:?}", tile);
-    //}
-
     println!("Player A's hand:");
     for tile in &game_state.players[0].hand {
         println!("{:?}", tile);
@@ -86,37 +81,6 @@ fn main() {
         }
         // Pass turn to the next player
         current_player_index = (current_player_index + 1) % 4;
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum Suit {
-    Manzu,
-    Pinzu,
-    Souzu,
-    Kaze,
-    Sangen,
-}
-
-#[derive(Debug, Copy, Clone, Ord, Eq)]
-struct MahjongTile {
-    suit: Suit,
-    value: u8,
-    is_dora: bool,
-}
-
-impl PartialOrd for MahjongTile {
-    fn partial_cmp(&self, other: &MahjongTile) -> Option<Ordering> {
-        match self.suit.partial_cmp(&other.suit) {
-            Some(Ordering::Equal) => self.value.partial_cmp(&other.value),
-            other => other,
-        }
-    }
-}
-
-impl PartialEq for MahjongTile {
-    fn eq(&self, other: &Self) -> bool {
-        self.suit == other.suit && self.value == other.value
     }
 }
 
@@ -156,34 +120,6 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
     (wall, wall_dead, dora_indicators)
 }
 
-#[derive(Debug)]
-enum SeatWind {
-    East,
-    South,
-    West,
-    North,
-}
-
-#[derive(Debug)]
-struct Player {
-    points: i32,
-    hand: Vec<MahjongTile>,
-    discards: Vec<MahjongTile>,
-    seat_wind: SeatWind,
-}
-impl Default for Player {
-    fn default() -> Player {
-        Player {
-            points: 25000,
-            hand: Vec::new(),
-            discards: Vec::new(),
-            seat_wind: SeatWind::East,
-        }
-    }
-}
-
-type Players = (Player, Player, Player, Player);
-
 fn initialize_players() -> Players {
     let a: Player = Player {
         ..Default::default()
@@ -203,23 +139,6 @@ fn initialize_players() -> Players {
 
     (a, b, c, d)
 }
-
-#[derive(Debug)]
-struct GameState {
-    players: [Player; 4],
-    wall: Vec<MahjongTile>,
-    wall_dead: Vec<MahjongTile>,
-    dora_indicators: Vec<MahjongTile>,
-    dora_index: usize,
-}
-
-type Hands = (
-    Vec<MahjongTile>, // Wall
-    Vec<MahjongTile>,
-    Vec<MahjongTile>,
-    Vec<MahjongTile>,
-    Vec<MahjongTile>,
-);
 
 fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     let a = wall.split_off(wall.len() - 13);
