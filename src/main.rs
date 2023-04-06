@@ -61,6 +61,18 @@ fn main() {
 
     while round_ongoing {
         // Current player draws a tile
+
+        let (tenpai0, waits0) = check_tenpai(&game_state.players[0]);
+        if tenpai0 {
+            println!("Player A's hand:");
+            for tile in &game_state.players[0].hand {
+                println!("{:?}", tile);
+            }
+            println!("Player A's Waits:");
+            for tile in &waits0 {
+                println!("{:?}", tile);
+            }
+        }
         draw_tile(
             &mut game_state.wall,
             &mut game_state.players[current_player_index].hand,
@@ -234,4 +246,101 @@ fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongT
         }
     }
     (result_threes, result_pairs)
+}
+
+fn check_tenpai(player: &Player) -> (bool, Vec<MahjongTile>) {
+    let (threes, pairs) = find_pairs_melds(player);
+    let mut temp_hand = player.hand.clone();
+
+    //Seven pairs
+    if pairs.len() == 6 {
+        for pair in &pairs {
+            let is_subset = pair.iter().all(|pair| temp_hand.contains(pair));
+
+            if is_subset {
+                for tile in pair {
+                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
+                        temp_hand.remove(tilepos);
+                    }
+                }
+            }
+        }
+        return (true, temp_hand);
+    }
+    //Normal hands
+    if pairs.len() < 3 && threes.len() > 2 {
+        for meld in &threes {
+            let is_subset = meld.iter().all(|meld| temp_hand.contains(meld));
+
+            if is_subset {
+                for tile in meld {
+                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
+                        temp_hand.remove(tilepos);
+                    }
+                }
+            }
+        }
+        for pair in &pairs {
+            let is_subset = pair.iter().all(|pair| temp_hand.contains(pair));
+
+            if is_subset {
+                for tile in pair {
+                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
+                        temp_hand.remove(tilepos);
+                    }
+                }
+            }
+        }
+        //Tanki
+        if temp_hand.len() == 1 {
+            return (true, temp_hand);
+        }
+        if temp_hand.len() == 2
+            && temp_hand[0].suit == temp_hand[1].suit
+            && temp_hand[0].suit != Suit::Sangen
+            && temp_hand[0].suit != Suit::Kaze
+        {
+            if temp_hand[1].value - temp_hand[0].value == 1 {
+                //Haamutiiliä, vähä sus. Jos ekvivalenssin tiilien välille saa sillee et ne ei välitä dorasuudest nii ok.
+
+                //Ryanmen & Penchan
+                let mut waits = vec![
+                    MahjongTile {
+                        value: temp_hand[0].value - 1,
+                        suit: temp_hand[0].suit,
+                        is_dora: false,
+                    },
+                    MahjongTile {
+                        value: temp_hand[1].value + 1,
+                        suit: temp_hand[1].suit,
+                        is_dora: false,
+                    },
+                ];
+                if temp_hand[1].value == 9 {
+                    waits.remove(1);
+                }
+                if temp_hand[0].value == 1 {
+                    waits.remove(0);
+                }
+                return (true, waits);
+            }
+            if temp_hand[1].value - temp_hand[0].value == 2 {
+
+                //Kanchan
+                let waits = vec![
+                    MahjongTile {
+                        value: temp_hand[1].value - 1,
+                        suit: temp_hand[1].suit,
+                        is_dora: false,
+                    },
+                ];
+                return (true, waits);
+            }
+        }
+        //To do shabo
+        if temp_hand.len() == 4{
+
+        }
+    }
+    (false, temp_hand)
 }
