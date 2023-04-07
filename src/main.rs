@@ -210,9 +210,9 @@ fn find_pairs_melds(hand: &[MahjongTile]) -> (Vec<Vec<MahjongTile>>, Vec<Vec<Mah
         let pairs = suit_tiles.iter().combinations(2);
         for three in threes {
             let three_vec: Vec<_> = three.into_iter().cloned().collect();
-            
+
             if (three_vec.windows(2).all(|w| w[0] == w[1]) && !results.contains(&three_vec))
-                || ( three_vec[2].value - three_vec[0].value == 2
+                || (three_vec[2].value - three_vec[0].value == 2
                     && three_vec[2].value - three_vec[1].value == 1
                     && suitloop != Suit::Kaze
                     && suitloop != Suit::Sangen
@@ -326,4 +326,49 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
         }
     }
     (false, temp_hand)
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_find_pairs_melds() {
+    let mut input = vec![
+        MahjongTile { suit: Suit::Sangen, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },   
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        vec![
+        MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
+        ],
+        vec![
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+        ],
+        vec![
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        ],
+    ];
+
+    input.sort();
+    let (test_meld1, test_meld2) = find_pairs_melds(&input);
+    let mut output = Vec::new();
+    output.extend(test_meld1);
+    output.extend(test_meld2);
+
+    assert_eq!(output, expected_output);
+
 }
