@@ -32,20 +32,6 @@ fn main() {
     game_state.players[2].hand.sort();
     game_state.players[3].hand.sort();
 
-    let (test_meld1, test_meld2) = find_pairs_melds(&game_state.players[0]);
-    println!(
-        "Melds in A's hand (threes: {} pairs: {}):",
-        test_meld1.len(),
-        test_meld2.len()
-    );
-    let mut testfunctio = Vec::new();
-    testfunctio.extend(test_meld1);
-    testfunctio.extend(test_meld2);
-
-    for res in testfunctio {
-        println!("{:?}", res);
-    }
-
     println!(
         "Dora Indicator: \n{:?}",
         game_state.dora_indicators[game_state.dora_index]
@@ -62,7 +48,7 @@ fn main() {
     while round_ongoing {
         // Current player draws a tile
         game_state.players[0].hand.sort();
-        let (tenpai0, waits0) = check_tenpai(&game_state.players[0]);
+        let (tenpai0, waits0) = check_tenpai(&game_state.players[0].hand);
 
         if tenpai0 {
             println!("Player A's hand:");
@@ -204,11 +190,10 @@ fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>, t
     hand_to.push(tile);
 }
 
-fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) {
+fn find_pairs_melds(hand: &[MahjongTile]) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) {
     let (mut result_threes, mut result_pairs): (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) =
         (Vec::new(), Vec::new());
     let mut results = Vec::new();
-    let hand = &player.hand;
     for suitloop in [
         Suit::Manzu,
         Suit::Pinzu,
@@ -249,9 +234,9 @@ fn find_pairs_melds(player: &Player) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongT
     (result_threes, result_pairs)
 }
 
-fn check_tenpai(player: &Player) -> (bool, Vec<MahjongTile>) {
-    let (threes, pairs) = find_pairs_melds(&player);
-    let mut temp_hand = player.hand.clone();
+fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
+    let (threes, pairs) = find_pairs_melds(hand);
+    let mut temp_hand = hand.to_owned();
 
     //Seven pairs
     if pairs.len() == 6 {
