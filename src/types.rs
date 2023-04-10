@@ -55,20 +55,41 @@ impl Default for Player {
             hand: Vec::new(),
             discards: Vec::new(),
             seat_wind: SeatWind::East,
-            strategy: Strategy::new(default_discard_strategy, default_tsumo_strategy),
+            strategy: Strategy::new(
+                default_boolean_strategy,
+                default_discard_strategy,
+                default_boolean_strategy,
+                default_boolean_strategy,
+                default_boolean_strategy,
+            ),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Strategy {
+    pub call: fn(GameState) -> bool,
     pub discard: fn(GameState) -> usize,
     pub tsumo: fn(GameState) -> bool,
+    pub kan: fn(GameState) -> bool,
+    pub riichi: fn(GameState) -> bool,
 }
 
 impl Strategy {
-    fn new(discard: fn(GameState) -> usize, tsumo: fn(GameState) -> bool) -> Strategy {
-        Strategy { discard, tsumo }
+    fn new(
+        call: fn(GameState) -> bool,
+        discard: fn(GameState) -> usize,
+        tsumo: fn(GameState) -> bool,
+        kan: fn(GameState) -> bool,
+        riichi: fn(GameState) -> bool,
+    ) -> Strategy {
+        Strategy {
+            call,
+            discard,
+            tsumo,
+            kan,
+            riichi,
+        }
     }
 }
 
@@ -76,7 +97,7 @@ fn default_discard_strategy(game_state: GameState) -> usize {
     0
 }
 
-fn default_tsumo_strategy(game_state: GameState) -> bool {
+fn default_boolean_strategy(game_state: GameState) -> bool {
     false
 }
 

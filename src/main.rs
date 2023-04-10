@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use rand::seq::SliceRandom;
+use std::collections::HashSet;
 mod types;
 use types::*;
 const DUPLICATE_TILES: usize = 4;
@@ -40,6 +41,7 @@ fn main() {
 
     let mut round_ongoing = true;
     let mut current_player_index: usize = 0;
+    let mut skip_draw = false;
 
     while round_ongoing {
         // Current player draws a tile
@@ -52,10 +54,14 @@ fn main() {
             println!("Player A's Waits:");
             print_hand(&waits0);
         }
-        draw_tile(
-            &mut game_state.wall,
-            &mut game_state.players[current_player_index].hand,
-        );
+        if skip_draw {
+            skip_draw = false;
+        } else {
+            draw_tile(
+                &mut game_state.wall,
+                &mut game_state.players[current_player_index].hand,
+            );
+        }
         // Current player may tsumo
         // Current player may kan
         // Current player discards a tile
@@ -67,7 +73,24 @@ fn main() {
         );
         // Other players may ron
         // Other players may pon
-        // Previous player may chi
+        // Next player may chi
+        let next_player_index = (current_player_index + 1) % 4;
+        let discarded = game_state.players[current_player_index]
+            .discards
+            .last()
+            .unwrap();
+
+        if can_chi(&game_state.players[next_player_index].hand, discarded) {
+            if (game_state.players[current_player_index].strategy.call)(game_state.clone()) {
+                draw_tile(
+                    &mut game_state.players[current_player_index].discards,
+                    &mut game_state.players[next_player_index].hand,
+                );
+                skip_draw = true;
+                //change player's hand to open and move the chi'd set to a open section of the hand
+            };
+        }
+
         // Check if the wall is empty
         if game_state.wall.is_empty() {
             round_ongoing = false;
@@ -432,6 +455,35 @@ fn test_find_pairs_melds() {
 
 }
 
+fn can_chi(hand: &[MahjongTile], tile: &MahjongTile) -> bool {
+    if tile.suit == Suit::Kaze || tile.suit == Suit::Sangen {
+        return false;
+    }
+    let suit_tiles: Vec<&MahjongTile> = hand
+        .iter()
+        .filter(|t| t.suit == tile.suit && t.value != tile.value)
+        .collect();
+
+    if suit_tiles.len() < 2 {
+        return false;
+    }
+
+    // Convert values into HashSet to remove possible duplicates
+    let mut values: HashSet<u8> = suit_tiles.iter().map(|t| t.value).collect();
+    values.insert(tile.value);
+
+    let mut values: Vec<u8> = values.into_iter().collect();
+    values.sort();
+
+    for i in 0..(values.len() - 2) {
+        if values[i] + 1 == values[i + 1] && values[i + 1] + 1 == values[i + 2] {
+            return true;
+        }
+    }
+
+    false
+}
+
 #[test]
 #[rustfmt::skip]
 fn test_tenpai() {
@@ -568,5 +620,35 @@ fn test_kanchan() {
     }
     assert_eq!(waits, expected_output);
     assert_eq!(tenpai, true);
+
+}
+#[test]
+#[rustfmt::skip]
+fn test_can_chi() {
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Sangen, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },   
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+    ];
+
+    let mut tile1 = MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false };
+    let mut tile2 = MahjongTile { suit: Suit::Sangen, value: 1, is_dora: false };
+    let mut tile3 = MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false };
+
+    hand.sort();
+
+    assert_eq!(can_chi(&hand, &tile1), true);
+    assert_eq!(can_chi(&hand, &tile2), false);
+    assert_eq!(can_chi(&hand, &tile3), true);
 
 }
