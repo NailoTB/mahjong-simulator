@@ -32,15 +32,11 @@ fn main() {
     game_state.players[2].hand.sort();
     game_state.players[3].hand.sort();
 
-    println!(
-        "Dora Indicator: \n{:?}",
-        game_state.dora_indicators[game_state.dora_index]
-    );
+    println!( "Dora Indicator:");
+    print_tile(&game_state.dora_indicators[game_state.dora_index]);
 
     println!("Player A's hand:");
-    for tile in &game_state.players[0].hand {
-        println!("{:?}", tile);
-    }
+    print_hand(&game_state.players[0].hand);
 
     let mut round_ongoing = true;
     let mut current_player_index: usize = 0;
@@ -52,13 +48,9 @@ fn main() {
 
         if tenpai0 {
             println!("Player A's hand:");
-            for tile in &game_state.players[0].hand {
-                println!("{:?}", tile);
-            }
+            print_hand(&game_state.players[0].hand);
             println!("Player A's Waits:");
-            for tile in &waits0 {
-                println!("{:?}", tile);
-            }
+            print_hand(&waits0);
         }
         draw_tile(
             &mut game_state.wall,
@@ -239,7 +231,7 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
     let mut temp_hand = hand.to_owned();
 
     //Seven pairs
-    if pairs.len() == 6 {
+    if pairs.len() == 6 && threes.len() < 2 {
         for pair in &pairs {
             let is_subset = pair.iter().all(|pair| temp_hand.contains(pair));
 
@@ -251,10 +243,10 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
                 }
             }
         }
-        return (true, temp_hand);
+        return (pairs.contains(&temp_hand), temp_hand);
     }
     //Normal hands
-    if pairs.len() < 3 && threes.len() > 2 {
+    if threes.len() > 2 {
         for meld in &threes {
             let is_subset = meld.iter().all(|meld| temp_hand.contains(meld));
 
@@ -266,10 +258,33 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
                 }
             }
         }
-        for pair in &pairs {
-            let is_subset = pair.iter().all(|pair| temp_hand.contains(pair));
+        //Shabo
+        if temp_hand.len() == 4 && pairs.len() > 1 {
+            let mut paired = Vec::new();
 
+            for pair in &pairs {
+                let is_subset = temp_hand.iter().filter(|&tile| tile == &pair[0]).count() >= 2;
+                if is_subset {
+                    for tile in pair {
+                        if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
+                            paired.push(tilepos);
+                        }
+                    }
+                }
+            }
+            
+            if paired.len() == 4 {
+                temp_hand.remove(paired[0]);
+                temp_hand.remove(paired[2]);
+                return (true, temp_hand);
+            }
+        }
+        let mut pair_removal_count = 0u32;
+
+        for pair in &pairs {
+            let is_subset = temp_hand.iter().filter(|&tile| tile == &pair[0]).count() >= 2;
             if is_subset {
+                pair_removal_count += 1;
                 for tile in pair {
                     if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
                         temp_hand.remove(tilepos);
@@ -277,8 +292,11 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
                 }
             }
         }
+        if pair_removal_count > 1 {
+            return (false, temp_hand);
+        }
         //Tanki
-        if temp_hand.len() == 1 {
+        if temp_hand.len() == 1 && pair_removal_count == 0 {
             return (true, temp_hand);
         }
         if temp_hand.len() == 2
@@ -320,14 +338,55 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
                 return (true, waits);
             }
         }
-        //To do shabo
-        if temp_hand.len() == 4 {
-            return (false, temp_hand);
-        }
     }
     (false, temp_hand)
 }
 
+fn print_hand(tiles: &[MahjongTile]) {
+    let mut result = String::new();
+    let mut suits: Vec<Suit> = Vec::new();
+    for suit in &[
+        Suit::Manzu,
+        Suit::Pinzu,
+        Suit::Souzu,
+        Suit::Kaze,
+        Suit::Sangen,
+    ] {
+        let suit_tiles: Vec<&MahjongTile> = tiles.iter().filter(|t| t.suit == *suit).collect();
+        if suit_tiles.is_empty() {
+            continue;
+        }
+        result.push_str(
+            &suit_tiles
+                .iter()
+                .map(|t| t.value.to_string())
+                .collect::<String>(),
+        );
+        match suit {
+            Suit::Manzu => result.push('m'),
+            Suit::Pinzu => result.push('p'),
+            Suit::Souzu => result.push('s'),
+            Suit::Kaze => result.push('k'),
+            Suit::Sangen => result.push('z'),
+        }
+        suits.push(*suit);
+    }
+    println!("{}", result);
+}
+
+fn print_tile(tile: &MahjongTile) {
+    let mut result = String::new();
+    result.push_str(&tile.value.to_string());
+    match &tile.suit {
+        Suit::Manzu => result.push('m'),
+        Suit::Pinzu => result.push('p'),
+        Suit::Souzu => result.push('s'),
+        Suit::Kaze => result.push('k'),
+        Suit::Sangen => result.push('z'),
+    }
+
+    println!("{}", result);
+}
 #[test]
 #[rustfmt::skip]
 fn test_find_pairs_melds() {
@@ -370,5 +429,144 @@ fn test_find_pairs_melds() {
     output.extend(test_meld2);
 
     assert_eq!(output, expected_output);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_tenpai() {
+    let mut input = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false }
+        ];
+
+    input.sort();
+    let (tenpai, waits) = check_tenpai(&input);
+
+    for tile in &waits {
+        println!("{:?}", tile);
+    }
+    assert_eq!(waits, expected_output);
+    assert_eq!(tenpai, false);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_shabo() {
+    let mut input = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false }
+        ];
+
+    input.sort();
+    let (tenpai, waits) = check_tenpai(&input);
+
+    for tile in &waits {
+        println!("{:?}", tile);
+    }
+    assert_eq!(waits, expected_output);
+    assert_eq!(tenpai, true);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_false_shabo() {
+    let mut input = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },   
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 7, is_dora: false }
+        ];
+
+    input.sort();
+    let (tenpai, waits) = check_tenpai(&input);
+
+    for tile in &waits {
+        println!("{:?}", tile);
+    }
+    assert_eq!(waits, expected_output);
+    assert_eq!(tenpai, false);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_kanchan() {
+    let mut input = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        ];
+
+    input.sort();
+    let (tenpai, waits) = check_tenpai(&input);
+
+    for tile in &waits {
+        println!("{:?}", tile);
+    }
+    assert_eq!(waits, expected_output);
+    assert_eq!(tenpai, true);
 
 }
