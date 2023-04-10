@@ -33,7 +33,7 @@ fn main() {
     game_state.players[2].hand.sort();
     game_state.players[3].hand.sort();
 
-    println!( "Dora Indicator:");
+    println!("Dora Indicator:");
     print_tile(&game_state.dora_indicators[game_state.dora_index]);
 
     println!("Player A's hand:");
@@ -80,16 +80,16 @@ fn main() {
             .last()
             .unwrap();
 
-        if can_chi(&game_state.players[next_player_index].hand, discarded) {
-            if (game_state.players[current_player_index].strategy.call)(game_state.clone()) {
-                draw_tile(
-                    &mut game_state.players[current_player_index].discards,
-                    &mut game_state.players[next_player_index].hand,
-                );
-                skip_draw = true;
-                //change player's hand to open and move the chi'd set to a open section of the hand
-            };
-        }
+        if can_chi(&game_state.players[next_player_index].hand, discarded)
+            && (game_state.players[current_player_index].strategy.call)(game_state.clone())
+        {
+            draw_tile(
+                &mut game_state.players[current_player_index].discards,
+                &mut game_state.players[next_player_index].hand,
+            );
+            skip_draw = true;
+            //change player's hand to open and move the chi'd set to a open section of the hand
+        };
 
         // Check if the wall is empty
         if game_state.wall.is_empty() {
@@ -295,7 +295,7 @@ fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
                     }
                 }
             }
-            
+
             if paired.len() == 4 {
                 temp_hand.remove(paired[0]);
                 temp_hand.remove(paired[2]);

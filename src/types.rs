@@ -9,7 +9,7 @@ pub enum Suit {
     Sangen,
 }
 
-#[derive(Debug, Copy, Clone, Ord, Eq)]
+#[derive(Debug, Copy, Clone, Eq)]
 pub struct MahjongTile {
     pub suit: Suit,
     pub value: u8,
@@ -28,6 +28,12 @@ impl PartialOrd for MahjongTile {
 impl PartialEq for MahjongTile {
     fn eq(&self, other: &Self) -> bool {
         self.suit == other.suit && self.value == other.value
+    }
+}
+
+impl Ord for MahjongTile {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -93,11 +99,11 @@ impl Strategy {
     }
 }
 
-fn default_discard_strategy(game_state: GameState) -> usize {
+fn default_discard_strategy(_game_state: GameState) -> usize {
     0
 }
 
-fn default_boolean_strategy(game_state: GameState) -> bool {
+fn default_boolean_strategy(_game_state: GameState) -> bool {
     false
 }
 
