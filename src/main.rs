@@ -28,29 +28,30 @@ fn main() {
 
     flip_dora_indicator(&mut game_state);
 
-    game_state.players[0].hand.sort();
-    game_state.players[1].hand.sort();
-    game_state.players[2].hand.sort();
-    game_state.players[3].hand.sort();
+    for i in 0..=3 {
+        game_state.players[i].sort_hand();
+    }
 
     println!("Dora Indicator:");
     print_tile(&game_state.dora_indicators[game_state.dora_index]);
 
     println!("Player A's hand:");
-    print_hand(&game_state.players[0].hand);
+    print_hand(&game_state.players[0].get_hand());
 
     let mut round_ongoing = true;
     let mut current_player_index: usize = 0;
     let mut skip_draw = false;
+    let mut skip_chi = false;
 
     while round_ongoing {
+        let next_player_index = (current_player_index + 1) % 4;
         // Current player draws a tile
         game_state.players[0].hand.sort();
         let (tenpai0, waits0) = check_tenpai(&game_state.players[0].hand);
 
         if tenpai0 {
             println!("Player A's hand:");
-            print_hand(&game_state.players[0].hand);
+            print_hand(&game_state.players[0].get_hand());
             println!("Player A's Waits:");
             print_hand(&waits0);
         }
@@ -71,17 +72,32 @@ fn main() {
             &mut game_state.players[current_player_index].discards,
             (game_state.players[current_player_index].strategy.discard)(strategy_input),
         );
-        // Other players may ron
-        // Other players may pon
-        // Next player may chi
-        let next_player_index = (current_player_index + 1) % 4;
-        let discarded = game_state.players[current_player_index]
+        let discarded = *game_state.players[current_player_index]
             .discards
             .last()
             .unwrap();
 
-        if can_chi(&game_state.players[next_player_index].hand, discarded)
-            && (game_state.players[current_player_index].strategy.call)(game_state.clone())
+        // Other players may ron
+        // Other players may pon
+        for i in 0..=3 {
+            if i != current_player_index
+                && can_pon(&game_state.players[i].hand, &discarded)
+                && (game_state.players[i].strategy.call_pon)(game_state.clone())
+            {
+                println!("some guy pon'd a {:?}", discarded);
+                game_state.players[i].hand.sort();
+                game_state.players[i].move_tile_to_open_hand(&discarded);
+                game_state.players[i].move_tile_to_open_hand(&discarded);
+                skip_chi = true;
+                break;
+            }
+        }
+
+        // Next player may chi
+        /* Need to change how this works -- strategy has to answer what straight to combine the stolen tile with so a boolean answer wont be enough
+        if !skip_chi
+            && can_chi(&game_state.players[next_player_index].hand, &discarded)
+            && (game_state.players[current_player_index].strategy.call_chi)(game_state.clone())
         {
             draw_tile(
                 &mut game_state.players[current_player_index].discards,
@@ -90,12 +106,17 @@ fn main() {
             skip_draw = true;
             //change player's hand to open and move the chi'd set to a open section of the hand
         };
+        */
+        skip_chi = false;
 
         // Check if the wall is empty
         if game_state.wall.is_empty() {
             round_ongoing = false;
         }
         // Pass turn to the next player
+        //print_hand(&game_state.players[current_player_index].hand);
+        //print_hand(&game_state.players[current_player_index].open_hand);
+        //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
         current_player_index = (current_player_index + 1) % 4;
     }
 }
@@ -179,10 +200,10 @@ fn flip_dora_indicator(game_state: &mut GameState) {
     change_dora_bool(&mut game_state.wall, dora_suit, dora_value);
     change_dora_bool(&mut game_state.wall_dead, dora_suit, dora_value);
     change_dora_bool(&mut game_state.dora_indicators, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players[0].hand, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players[1].hand, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players[2].hand, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.players[3].hand, dora_suit, dora_value); //what a mess
+    for i in 0..=3 {
+        change_dora_bool(&mut game_state.players[i].hand, dora_suit, dora_value);
+        change_dora_bool(&mut game_state.players[i].open_hand, dora_suit, dora_value);
+    }
 }
 
 fn change_dora_bool(tile_list: &mut [MahjongTile], dora_suit: Suit, dora_value: u8) {
@@ -484,6 +505,10 @@ fn can_chi(hand: &[MahjongTile], tile: &MahjongTile) -> bool {
     false
 }
 
+fn can_pon(hand: &[MahjongTile], tile: &MahjongTile) -> bool {
+    hand.iter().filter(|&t| t == tile).count() >= 2
+}
+
 #[test]
 #[rustfmt::skip]
 fn test_tenpai() {
@@ -650,5 +675,36 @@ fn test_can_chi() {
     assert_eq!(can_chi(&hand, &tile1), true);
     assert_eq!(can_chi(&hand, &tile2), false);
     assert_eq!(can_chi(&hand, &tile3), true);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_can_pon() {
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Sangen, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },   
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false },
+    ];
+
+    let mut tile1 = MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false };
+    let mut tile2 = MahjongTile { suit: Suit::Manzu, value: 8, is_dora: false };
+    let mut tile3 = MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false };
+
+    hand.sort();
+
+    assert_eq!(can_pon(&hand, &tile1), true);
+    assert_eq!(can_pon(&hand, &tile2), true);
+    assert_eq!(can_pon(&hand, &tile3), false);
 
 }
