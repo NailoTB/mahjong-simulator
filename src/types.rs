@@ -101,7 +101,7 @@ impl Player {
         entire_hand
     }
     pub fn sort_hand(&mut self) {
-        &self.hand.sort();
+        let _ = &self.hand.sort();
     }
 }
 

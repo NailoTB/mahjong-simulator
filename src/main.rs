@@ -1,124 +1,135 @@
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
+use std::time::Instant;
 mod types;
 use types::*;
 const DUPLICATE_TILES: usize = 4;
+const ROUNDS: u8 = 4 * 2;
+const GAMES: usize = 1;
 
 fn main() {
-    let (mut player_a, mut player_b, mut player_c, mut player_d) = initialize_players();
+    let start_time = Instant::now();
+    for game in 1..=GAMES {
+        let (mut player_a, mut player_b, mut player_c, mut player_d) = initialize_players();
 
-    let (mut wall, wall_dead, dora_indicators) = initialize_wall();
+        let (mut wall, wall_dead, dora_indicators) = initialize_wall();
 
-    (
-        wall,
-        player_a.hand,
-        player_b.hand,
-        player_c.hand,
-        player_d.hand,
-    ) = draw_hands(wall);
+        (
+            wall,
+            player_a.hand,
+            player_b.hand,
+            player_c.hand,
+            player_d.hand,
+        ) = draw_hands(wall);
 
-    let mut game_state = GameState {
-        players: [player_a, player_b, player_c, player_d],
-        wall,
-        wall_dead,
-        dora_indicators,
-        dora_index: 0,
-    };
+        let mut game_state = GameState {
+            players: [player_a, player_b, player_c, player_d],
+            wall,
+            wall_dead,
+            dora_indicators,
+            dora_index: 0,
+        };
 
-    flip_dora_indicator(&mut game_state);
+        flip_dora_indicator(&mut game_state);
 
-    for i in 0..=3 {
-        game_state.players[i].sort_hand();
-    }
-
-    println!("Dora Indicator:");
-    print_tile(&game_state.dora_indicators[game_state.dora_index]);
-
-    println!("Player A's hand:");
-    print_hand(&game_state.players[0].get_hand());
-
-    let mut round_ongoing = true;
-    let mut current_player_index: usize = 0;
-    let mut skip_draw = false;
-    let mut skip_chi = false;
-
-    while round_ongoing {
-        let next_player_index = (current_player_index + 1) % 4;
-        // Current player draws a tile
-        game_state.players[0].hand.sort();
-        let (tenpai0, waits0) = check_tenpai(&game_state.players[0].hand);
-
-        if tenpai0 {
-            println!("Player A's hand:");
-            print_hand(&game_state.players[0].get_hand());
-            println!("Player A's Waits:");
-            print_hand(&waits0);
-        }
-        if skip_draw {
-            skip_draw = false;
-        } else {
-            draw_tile(
-                &mut game_state.wall,
-                &mut game_state.players[current_player_index].hand,
-            );
-        }
-        // Current player may tsumo
-        // Current player may kan
-        // Current player discards a tile
-        let strategy_input = game_state.clone();
-        move_tile(
-            &mut game_state.players[current_player_index].hand,
-            &mut game_state.players[current_player_index].discards,
-            (game_state.players[current_player_index].strategy.discard)(strategy_input),
-        );
-        let discarded = *game_state.players[current_player_index]
-            .discards
-            .last()
-            .unwrap();
-
-        // Other players may ron
-        // Other players may pon
         for i in 0..=3 {
-            if i != current_player_index
-                && can_pon(&game_state.players[i].hand, &discarded)
-                && (game_state.players[i].strategy.call_pon)(game_state.clone())
-            {
-                println!("some guy pon'd a {:?}", discarded);
-                game_state.players[i].hand.sort();
-                game_state.players[i].move_tile_to_open_hand(&discarded);
-                game_state.players[i].move_tile_to_open_hand(&discarded);
-                skip_chi = true;
-                break;
+            game_state.players[i].sort_hand();
+        }
+
+        //println!("Dora Indicator:");
+        //print_tile(&game_state.dora_indicators[game_state.dora_index]);
+
+        //println!("Player A's hand:");
+        //print_hand(&game_state.players[0].get_hand());
+
+        //println!("game {game}");
+
+        let mut current_player_index: usize = 0;
+        for round in 1..=ROUNDS {
+            //println!("round {round}");
+            let mut round_ongoing = true;
+            let mut skip_draw = false;
+            let mut skip_chi = false;
+            while round_ongoing {
+                let next_player_index = (current_player_index + 1) % 4;
+                // Current player draws a tile
+                game_state.players[0].hand.sort();
+                let (tenpai0, waits0) = check_tenpai(&game_state.players[0].hand);
+
+                if tenpai0 {
+                    println!("Player A's hand:");
+                    print_hand(&game_state.players[0].get_hand());
+                    println!("Player A's Waits:");
+                    print_hand(&waits0);
+                }
+                if skip_draw {
+                    skip_draw = false;
+                } else {
+                    draw_tile(
+                        &mut game_state.wall,
+                        &mut game_state.players[current_player_index].hand,
+                    );
+                }
+                // Current player may tsumo
+                // Current player may kan
+                // Current player discards a tile
+                let strategy_input = game_state.clone();
+                move_tile(
+                    &mut game_state.players[current_player_index].hand,
+                    &mut game_state.players[current_player_index].discards,
+                    (game_state.players[current_player_index].strategy.discard)(strategy_input),
+                );
+                let discarded = *game_state.players[current_player_index]
+                    .discards
+                    .last()
+                    .unwrap();
+
+                // Other players may ron
+                // Other players may pon
+                for i in 0..=3 {
+                    if i != current_player_index
+                        && can_pon(&game_state.players[i].hand, &discarded)
+                        && (game_state.players[i].strategy.call_pon)(game_state.clone())
+                    {
+                        //println!("some guy pon'd a {:?}", discarded);
+                        game_state.players[i].hand.sort();
+                        game_state.players[i].move_tile_to_open_hand(&discarded);
+                        game_state.players[i].move_tile_to_open_hand(&discarded);
+                        skip_chi = true;
+                        break;
+                    }
+                }
+
+                // Next player may chi
+                /* Need to change how this works -- strategy has to answer what straight to combine the stolen tile with so a boolean answer wont be enough
+                if !skip_chi
+                    && can_chi(&game_state.players[next_player_index].hand, &discarded)
+                    && (game_state.players[current_player_index].strategy.call_chi)(game_state.clone())
+                {
+                    draw_tile(
+                        &mut game_state.players[current_player_index].discards,
+                        &mut game_state.players[next_player_index].hand,
+                    );
+                    skip_draw = true;
+                    //change player's hand to open and move the chi'd set to a open section of the hand
+                };
+                */
+                skip_chi = false;
+
+                // Check if the wall is empty
+                if game_state.wall.is_empty() {
+                    round_ongoing = false;
+                }
+                // Pass turn to the next player
+                //print_hand(&game_state.players[current_player_index].hand);
+                //print_hand(&game_state.players[current_player_index].open_hand);
+                //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
+                current_player_index = next_player_index;
             }
         }
-
-        // Next player may chi
-        /* Need to change how this works -- strategy has to answer what straight to combine the stolen tile with so a boolean answer wont be enough
-        if !skip_chi
-            && can_chi(&game_state.players[next_player_index].hand, &discarded)
-            && (game_state.players[current_player_index].strategy.call_chi)(game_state.clone())
-        {
-            draw_tile(
-                &mut game_state.players[current_player_index].discards,
-                &mut game_state.players[next_player_index].hand,
-            );
-            skip_draw = true;
-            //change player's hand to open and move the chi'd set to a open section of the hand
-        };
-        */
-        skip_chi = false;
-
-        // Check if the wall is empty
-        if game_state.wall.is_empty() {
-            round_ongoing = false;
-        }
-        // Pass turn to the next player
-        //print_hand(&game_state.players[current_player_index].hand);
-        //print_hand(&game_state.players[current_player_index].open_hand);
-        //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
-        current_player_index = (current_player_index + 1) % 4;
     }
+    println!("Program took {:.2?} to execute", start_time.elapsed());
 }
 
 fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
