@@ -1,4 +1,4 @@
-use itertools::Itertools;
+use itertools::{Itertools};
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
 use std::time::Instant;
@@ -6,7 +6,7 @@ mod types;
 use types::*;
 const DUPLICATE_TILES: usize = 4;
 const ROUNDS: u8 = 4 * 2;
-const GAMES: usize = 1;
+const GAMES: usize = 100;
 
 fn main() {
     let start_time = Instant::now();
@@ -279,6 +279,92 @@ fn find_pairs_melds(hand: &[MahjongTile]) -> (Vec<Vec<MahjongTile>>, Vec<Vec<Mah
         }
     }
     (result_threes, result_pairs)
+}
+fn is_subset<T: PartialEq + Clone>(superset: &[T], subset: &[T]) -> bool {
+    let mut temp_vec: Vec<T> = superset.to_vec();
+
+    let mut removed_count = 0;
+    for subset_element in subset {
+        let mut found = false;
+        for (i, superset_element) in temp_vec.iter().enumerate() {
+            if *superset_element == *subset_element {
+                temp_vec.remove(i);
+                removed_count += 1;
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            return false;
+        }
+    }
+
+    removed_count == subset.len()
+}
+
+fn find_lowest_shanten_state(hand: &[MahjongTile]) -> Vec<Vec<MahjongTile>> {
+    let mut hand_structure: Vec<Vec<MahjongTile>> = Vec::new();
+    let (melds, mut pairs) = find_pairs_melds(hand);
+    pairs.extend(melds);
+
+    let plain_powerset = vector_powerset(&pairs)[1..].to_vec();
+    let mut true_powerset = plain_powerset.clone();
+    for meld in &pairs {
+        if meld.len() == 2 {
+            continue;
+        }
+        for subset in &plain_powerset {
+            let mut extended_subset = subset.clone();
+            extended_subset.push((*meld).clone());
+            true_powerset.push(extended_subset);
+        }
+    }
+    true_powerset.extend(plain_powerset);
+    let mut top_score: i32 = 0;
+    for meld_set in &true_powerset {
+        let mut shanten_score: i32 = 0;
+        let mut temp_hand = hand.to_vec();
+        for meld in meld_set {
+            let is_subset = is_subset(&temp_hand, meld);
+            if is_subset {
+                if meld.len() == 2 {
+                    shanten_score += 1;
+                } else {
+                    shanten_score += 2; //arbitrary score difference for threes and pairs
+                }
+                for tile in meld {
+                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
+                        temp_hand.remove(tilepos);
+                    }
+                }
+            } else {
+                shanten_score -= 1;
+            }
+        }
+        if shanten_score > top_score {
+            //to do equal cases
+            top_score = shanten_score;
+            hand_structure = meld_set.clone(); //append to a list of hands with equal shanten_score
+        }
+    }
+
+    return hand_structure;
+}
+
+fn vector_powerset<T: Clone>(v: &[Vec<T>]) -> Vec<Vec<Vec<T>>> {
+    if v.is_empty() {
+        return vec![vec![]];
+    }
+    let mut ps = vector_powerset(&v[1..]);
+    let item = &v[0];
+    let mut new_ps = Vec::new();
+    for subset in &ps {
+        let mut new_subset = subset.clone();
+        new_subset.push(item.clone());
+        new_ps.push(new_subset);
+    }
+    ps.append(&mut new_ps);
+    ps
 }
 
 fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
@@ -669,7 +755,7 @@ fn test_can_chi() {
         MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
         MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
         MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false },
-        MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 8, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },   
         MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
@@ -680,12 +766,14 @@ fn test_can_chi() {
     let mut tile1 = MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false };
     let mut tile2 = MahjongTile { suit: Suit::Sangen, value: 1, is_dora: false };
     let mut tile3 = MahjongTile { suit: Suit::Manzu, value: 7, is_dora: false };
+    let mut tile4 = MahjongTile { suit: Suit::Pinzu, value: 7, is_dora: false };
 
     hand.sort();
 
     assert_eq!(can_chi(&hand, &tile1), true);
     assert_eq!(can_chi(&hand, &tile2), false);
     assert_eq!(can_chi(&hand, &tile3), true);
+    assert_eq!(can_chi(&hand, &tile4), true);
 
 }
 
