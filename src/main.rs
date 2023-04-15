@@ -1,4 +1,4 @@
-use itertools::{Itertools};
+use itertools::Itertools;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
 use std::time::Instant;
@@ -6,7 +6,7 @@ mod types;
 use types::*;
 const DUPLICATE_TILES: usize = 4;
 const ROUNDS: u8 = 4 * 2;
-const GAMES: usize = 100;
+const GAMES: usize = 10;
 
 fn main() {
     let start_time = Instant::now();
@@ -59,10 +59,13 @@ fn main() {
 
                 if tenpai0 {
                     println!("Player A's hand:");
-                    print_hand(&game_state.players[0].get_hand());
+                    print_hand(&game_state.players[0].hand);
+                    print_hand(&game_state.players[0].open_hand);
+
                     println!("Player A's Waits:");
                     print_hand(&waits0);
                 }
+
                 if skip_draw {
                     skip_draw = false;
                 } else {
@@ -302,8 +305,8 @@ fn is_subset<T: PartialEq + Clone>(superset: &[T], subset: &[T]) -> bool {
     removed_count == subset.len()
 }
 
-fn find_lowest_shanten_state(hand: &[MahjongTile]) -> Vec<Vec<MahjongTile>> {
-    let mut hand_structure: Vec<Vec<MahjongTile>> = Vec::new();
+fn find_lowest_shanten_states(hand: &[MahjongTile]) -> Vec<Vec<Vec<MahjongTile>>> {
+    let mut hand_structure: Vec<Vec<Vec<MahjongTile>>> = Vec::new();
     let (melds, mut pairs) = find_pairs_melds(hand);
     pairs.extend(melds);
 
@@ -319,36 +322,30 @@ fn find_lowest_shanten_state(hand: &[MahjongTile]) -> Vec<Vec<MahjongTile>> {
             true_powerset.push(extended_subset);
         }
     }
-    true_powerset.extend(plain_powerset);
-    let mut top_score: i32 = 0;
     for meld_set in &true_powerset {
-        let mut shanten_score: i32 = 0;
+        let mut subset_check = true;
         let mut temp_hand = hand.to_vec();
         for meld in meld_set {
             let is_subset = is_subset(&temp_hand, meld);
             if is_subset {
-                if meld.len() == 2 {
-                    shanten_score += 1;
-                } else {
-                    shanten_score += 2; //arbitrary score difference for threes and pairs
-                }
                 for tile in meld {
                     if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
                         temp_hand.remove(tilepos);
                     }
                 }
             } else {
-                shanten_score -= 1;
+                subset_check = false;
+                break;
             }
         }
-        if shanten_score > top_score {
-            //to do equal cases
-            top_score = shanten_score;
-            hand_structure = meld_set.clone(); //append to a list of hands with equal shanten_score
+
+        if !subset_check {
+            continue;
         }
+        hand_structure.push(meld_set.clone());
     }
 
-    return hand_structure;
+    hand_structure
 }
 
 fn vector_powerset<T: Clone>(v: &[Vec<T>]) -> Vec<Vec<Vec<T>>> {
@@ -366,123 +363,130 @@ fn vector_powerset<T: Clone>(v: &[Vec<T>]) -> Vec<Vec<Vec<T>>> {
     ps.append(&mut new_ps);
     ps
 }
+fn clear_melds_from_hand(
+    hand: &mut Vec<MahjongTile>,
+    meldset: &Vec<Vec<MahjongTile>>,
+    skip_pairs: bool,
+) {
+    for meld in meldset {
+        if meld.len() == 2 && skip_pairs {
+            continue;
+        }
 
+        for tile in meld {
+            if let Some(tilepos) = hand.iter().position(|x| x == tile) {
+                hand.remove(tilepos);
+            }
+        }
+    }
+}
 fn check_tenpai(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
-    let (threes, pairs) = find_pairs_melds(hand);
-    let mut temp_hand = hand.to_owned();
-
-    //Seven pairs
-    if pairs.len() == 6 && threes.len() < 2 {
-        for pair in &pairs {
-            let is_subset = pair.iter().all(|pair| temp_hand.contains(pair));
-
-            if is_subset {
-                for tile in pair {
-                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
-                        temp_hand.remove(tilepos);
-                    }
-                }
-            }
-        }
-        return (pairs.contains(&temp_hand), temp_hand);
-    }
-    //Normal hands
-    if threes.len() > 2 {
-        for meld in &threes {
-            let is_subset = meld.iter().all(|meld| temp_hand.contains(meld));
-
-            if is_subset {
-                for tile in meld {
-                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
-                        temp_hand.remove(tilepos);
-                    }
-                }
-            }
-        }
-        //Shabo
-        if temp_hand.len() == 4 && pairs.len() > 1 {
-            let mut paired = Vec::new();
-
-            for pair in &pairs {
-                let is_subset = temp_hand.iter().filter(|&tile| tile == &pair[0]).count() >= 2;
-                if is_subset {
-                    for tile in pair {
-                        if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
-                            paired.push(tilepos);
-                        }
-                    }
-                }
-            }
-
-            if paired.len() == 4 {
-                temp_hand.remove(paired[0]);
-                temp_hand.remove(paired[2]);
-                return (true, temp_hand);
-            }
-        }
-        let mut pair_removal_count = 0u32;
-
-        for pair in &pairs {
-            let is_subset = temp_hand.iter().filter(|&tile| tile == &pair[0]).count() >= 2;
-            if is_subset {
-                pair_removal_count += 1;
-                for tile in pair {
-                    if let Some(tilepos) = temp_hand.iter().position(|x| x == tile) {
-                        temp_hand.remove(tilepos);
-                    }
-                }
-            }
-        }
-        if pair_removal_count > 1 {
-            return (false, temp_hand);
-        }
-        //Tanki
-        if temp_hand.len() == 1 && pair_removal_count == 0 {
-            return (true, temp_hand);
-        }
-        if temp_hand.len() == 2
-            && temp_hand[0].suit == temp_hand[1].suit
-            && temp_hand[0].suit != Suit::Sangen
-            && temp_hand[0].suit != Suit::Kaze
-        {
-            if temp_hand[1].value - temp_hand[0].value == 1 {
-                //Ghost tiles, ok if doraness is not taken into account in equivalences.
-
-                //Ryanmen & Penchan
-                let mut waits = vec![
-                    MahjongTile {
-                        value: temp_hand[0].value - 1,
-                        suit: temp_hand[0].suit,
-                        is_dora: false,
-                    },
-                    MahjongTile {
-                        value: temp_hand[1].value + 1,
-                        suit: temp_hand[1].suit,
-                        is_dora: false,
-                    },
-                ];
-                if temp_hand[1].value == 9 {
-                    waits.remove(1);
-                }
-                if temp_hand[0].value == 1 {
-                    waits.remove(0);
-                }
-                return (true, waits);
-            }
-            if temp_hand[1].value - temp_hand[0].value == 2 {
-                //Kanchan
-                let waits = vec![MahjongTile {
-                    value: temp_hand[1].value - 1,
-                    suit: temp_hand[1].suit,
-                    is_dora: false,
-                }];
-                return (true, waits);
-            }
-        }
-    }
-    (false, temp_hand)
+    let temp_hand = hand.to_vec();
+    let (is_tenpai, mut waits) = find_wait(&temp_hand);
+    waits.sort();
+    (is_tenpai, waits)
 }
 
+fn find_wait(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
+    let mut waits: Vec<MahjongTile> = Vec::new();
+    for tile in hand {
+        if tile.suit != Suit::Kaze && tile.suit != Suit::Sangen {
+            for side in 0..=1 {
+                let mut temp_hand = hand.to_vec();
+                let test_tile = MahjongTile {
+                    value: tile.value - 1 + side * 2,
+                    suit: tile.suit,
+                    is_dora: false,
+                };
+                if waits.contains(&test_tile) {
+                    continue;
+                }
+
+                if (tile.value == 1 && side == 1)
+                    || (tile.value == 9 && side == 0)
+                    || (tile.value != 1 && tile.value != 9)
+                {
+                    temp_hand.push(test_tile);
+                    if is_complete_alt(&temp_hand) {
+                        waits.push(test_tile);
+                    }
+                }
+            }
+        }
+        let mut temp_hand = hand.to_vec();
+        let same_tile = MahjongTile {
+            value: tile.value,
+            suit: tile.suit,
+            is_dora: false,
+        };
+
+        if waits.contains(&same_tile) {
+            continue;
+        }
+
+        temp_hand.push(same_tile);
+        if is_complete_alt(&temp_hand) {
+            waits.push(same_tile);
+        }
+    }
+    (!waits.is_empty(), waits)
+}
+
+fn is_complete(hand: &[MahjongTile]) -> bool {
+    let mut first_copy = hand.to_vec();
+    first_copy.sort();
+    let hand_structure = find_lowest_shanten_states(&first_copy);
+
+    for meldset in &hand_structure {
+        let mut temp_hand = first_copy.to_vec();
+        clear_melds_from_hand(&mut temp_hand, meldset, false);
+
+        if temp_hand.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+fn is_complete_alt(hand: &[MahjongTile]) -> bool {
+    let mut first_copy = hand.to_vec();
+    first_copy.sort();
+
+    let (melds, mut pairs) = find_pairs_melds(&first_copy);
+    pairs.extend(melds.clone());
+    let n_melds = pairs.len();
+
+    for meld1 in &melds {
+        let mut second_copy = first_copy.to_vec();
+
+        for tile in meld1 {
+            if let Some(tilepos) = second_copy.iter().position(|x| x == tile) {
+                second_copy.remove(tilepos);
+            }
+        }
+
+        for start_index in 0..n_melds {
+            let mut third_copy = second_copy.to_vec();
+
+            for meld_index in 0..n_melds {
+                let meld2 = &pairs[(start_index + meld_index) % n_melds];
+
+                if is_subset(&third_copy, meld2) {
+                    for tile in meld2 {
+                        if let Some(tilepos) = third_copy.iter().position(|x| x == tile) {
+                            third_copy.remove(tilepos);
+                        }
+                    }
+                } else {
+                    continue;
+                }
+            }
+            if third_copy.is_empty() {
+                return true;
+            }
+        }
+    }
+    false
+}
 fn print_hand(tiles: &[MahjongTile]) {
     let mut result = String::new();
     let mut suits: Vec<Suit> = Vec::new();
@@ -625,10 +629,7 @@ fn test_tenpai() {
         MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
     ];
 
-    let expected_output = vec![
-        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
-        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false }
-        ];
+    let expected_output = vec![];
 
     input.sort();
     let (tenpai, waits) = check_tenpai(&input);
@@ -695,10 +696,7 @@ fn test_false_shabo() {
         MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
     ];
 
-    let expected_output = vec![
-        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
-        MahjongTile { suit: Suit::Pinzu, value: 7, is_dora: false }
-        ];
+    let expected_output = vec![];
 
     input.sort();
     let (tenpai, waits) = check_tenpai(&input);
@@ -805,5 +803,118 @@ fn test_can_pon() {
     assert_eq!(can_pon(&hand, &tile1), true);
     assert_eq!(can_pon(&hand, &tile2), true);
     assert_eq!(can_pon(&hand, &tile3), false);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_super_tenpai() {
+
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+
+        ];
+
+    hand.sort();
+    let (tenpai1, waits2) = check_tenpai(&hand);
+    print_hand(&hand);
+    print_hand(&waits2);
+    assert_eq!(waits2, expected_output);
+    assert_eq!(tenpai1, true);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_super_tenpai_sanmen() {
+
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 7, is_dora: false },
+
+        ];
+
+    hand.sort();
+    let (tenpai1, waits2) = check_tenpai(&hand);
+    print_hand(&hand);
+    print_hand(&waits2);
+    assert_eq!(waits2, expected_output);
+    assert_eq!(tenpai1, true);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_super_tenpai_happoubijin() {
+    let start_time = Instant::now();
+
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 7, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Souzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },
+        ];
+
+    hand.sort();
+    let (tenpai1, mut waits2) = check_tenpai(&hand);
+    print_hand(&hand);
+    print_hand(&waits2);
+    assert_eq!(waits2, expected_output);
+    assert_eq!(tenpai1, true);
+    println!("Test took {:.2?} to execute", start_time.elapsed());
 
 }
