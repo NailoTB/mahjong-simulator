@@ -11,94 +11,77 @@ const GAMES: usize = 10;
 fn main() {
     let start_time = Instant::now();
     for game in 1..=GAMES {
-        let (mut player_a, mut player_b, mut player_c, mut player_d) = initialize_players();
-
-        let (mut wall, wall_dead, dora_indicators) = initialize_wall();
-
-        (
-            wall,
-            player_a.hand,
-            player_b.hand,
-            player_c.hand,
-            player_d.hand,
-        ) = draw_hands(wall);
-
-        let mut game_state = GameState {
-            players: [player_a, player_b, player_c, player_d],
-            wall,
-            wall_dead,
-            dora_indicators,
-            dora_index: 0,
-        };
-
-        flip_dora_indicator(&mut game_state);
-
-        for i in 0..=3 {
-            game_state.players[i].sort_hand();
-        }
-
-        //println!("Dora Indicator:");
-        //print_tile(&game_state.dora_indicators[game_state.dora_index]);
-
-        //println!("Player A's hand:");
-        //print_hand(&game_state.players[0].get_hand());
-
-        //println!("game {game}");
+        let mut players = initialize_players();
 
         let mut current_player_index: usize = 0;
         for round in 1..=ROUNDS {
-            //println!("round {round}");
+            let mut player_tiles = PlayerTiles::default();
+
+            let (mut wall, wall_dead, dora_indicators) = initialize_wall();
+
+            (
+                wall,
+                player_tiles.hand[0],
+                player_tiles.hand[1],
+                player_tiles.hand[2],
+                player_tiles.hand[3],
+            ) = draw_hands(wall);
+
+            let mut board_tiles = BoardTiles {
+                wall,
+                wall_dead,
+                dora_indicators,
+                dora_index: 0,
+            };
+
+            flip_dora_indicator(&mut board_tiles, &mut player_tiles);
+
+            for i in 0..=3 {
+                player_tiles.hand[i].sort();
+            }
+
             let mut round_ongoing = true;
             let mut skip_draw = false;
             let mut skip_chi = false;
             while round_ongoing {
                 let next_player_index = (current_player_index + 1) % 4;
                 // Current player draws a tile
-                game_state.players[0].hand.sort();
-                let (tenpai0, waits0) = check_tenpai(&game_state.players[0].hand);
-
-                if tenpai0 {
-                    println!("Player A's hand:");
-                    print_hand(&game_state.players[0].hand);
-                    print_hand(&game_state.players[0].open_hand);
-
-                    println!("Player A's Waits:");
-                    print_hand(&waits0);
-                }
+                player_tiles.hand[current_player_index].sort();
 
                 if skip_draw {
                     skip_draw = false;
                 } else {
                     draw_tile(
-                        &mut game_state.wall,
-                        &mut game_state.players[current_player_index].hand,
+                        &mut board_tiles.wall,
+                        &mut player_tiles.hand[current_player_index],
                     );
                 }
                 // Current player may tsumo
                 // Current player may kan
                 // Current player discards a tile
-                let strategy_input = game_state.clone();
+                // Placeholder - Need to pass relevant vectors to strategies (hand, discards, dora indicator..)
+                let strategy_input = true;
+
                 move_tile(
-                    &mut game_state.players[current_player_index].hand,
-                    &mut game_state.players[current_player_index].discards,
-                    (game_state.players[current_player_index].strategy.discard)(strategy_input),
+                    &mut player_tiles.hand[current_player_index],
+                    &mut player_tiles.discards[current_player_index],
+                    (players[current_player_index].strategy.discard)(strategy_input),
                 );
-                let discarded = *game_state.players[current_player_index]
-                    .discards
-                    .last()
-                    .unwrap();
+                let discarded = *player_tiles.discards[current_player_index].last().unwrap();
 
                 // Other players may ron
                 // Other players may pon
                 for i in 0..=3 {
                     if i != current_player_index
-                        && can_pon(&game_state.players[i].hand, &discarded)
-                        && (game_state.players[i].strategy.call_pon)(game_state.clone())
+                        && can_pon(&player_tiles.hand[i], &discarded)
+                        && (players[current_player_index].strategy.call_pon)(strategy_input)
                     {
                         //println!("some guy pon'd a {:?}", discarded);
-                        game_state.players[i].hand.sort();
-                        game_state.players[i].move_tile_to_open_hand(&discarded);
-                        game_state.players[i].move_tile_to_open_hand(&discarded);
+                        player_tiles.hand[i].sort();
+                        remove_pon_tiles(&mut player_tiles.hand[i], &discarded);
+                        for _ in 1..=3 {
+                            player_tiles.open_hand[i].push(discarded);
+                        }
                         skip_chi = true;
                         break;
                     }
@@ -121,7 +104,7 @@ fn main() {
                 skip_chi = false;
 
                 // Check if the wall is empty
-                if game_state.wall.is_empty() {
+                if board_tiles.wall.is_empty() {
                     round_ongoing = false;
                 }
                 // Pass turn to the next player
@@ -171,24 +154,24 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
     (wall, wall_dead, dora_indicators)
 }
 
-fn initialize_players() -> Players {
-    let a: Player = Player {
+fn initialize_players() -> Vec<Player> {
+    let a = Player {
         ..Default::default()
     };
-    let b: Player = Player {
+    let b = Player {
         seat_wind: SeatWind::South,
         ..Default::default()
     };
-    let c: Player = Player {
+    let c = Player {
         seat_wind: SeatWind::West,
         ..Default::default()
     };
-    let d: Player = Player {
+    let d = Player {
         seat_wind: SeatWind::North,
         ..Default::default()
     };
 
-    (a, b, c, d)
+    vec![a, b, c, d]
 }
 
 fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
@@ -199,8 +182,9 @@ fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     (wall, a, b, c, d)
 }
 
-fn flip_dora_indicator(game_state: &mut GameState) {
-    let dora_indicator: &MahjongTile = &game_state.dora_indicators[game_state.dora_index];
+//fn flip_dora_indicator(game_state: &mut GameState) {
+fn flip_dora_indicator(board_tiles: &mut BoardTiles, player_tiles: &mut PlayerTiles) {
+    let dora_indicator: &MahjongTile = &board_tiles.dora_indicators[board_tiles.dora_index];
     let dora_suit: Suit = dora_indicator.suit;
 
     let suit_modulo = match dora_suit {
@@ -211,12 +195,12 @@ fn flip_dora_indicator(game_state: &mut GameState) {
 
     let dora_value: u8 = (dora_indicator.value) % (suit_modulo) + 1;
 
-    change_dora_bool(&mut game_state.wall, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.wall_dead, dora_suit, dora_value);
-    change_dora_bool(&mut game_state.dora_indicators, dora_suit, dora_value);
+    change_dora_bool(&mut board_tiles.wall, dora_suit, dora_value);
+    change_dora_bool(&mut board_tiles.wall_dead, dora_suit, dora_value);
+    change_dora_bool(&mut board_tiles.dora_indicators, dora_suit, dora_value);
     for i in 0..=3 {
-        change_dora_bool(&mut game_state.players[i].hand, dora_suit, dora_value);
-        change_dora_bool(&mut game_state.players[i].open_hand, dora_suit, dora_value);
+        change_dora_bool(&mut player_tiles.hand[i], dora_suit, dora_value);
+        change_dora_bool(&mut player_tiles.open_hand[i], dora_suit, dora_value);
     }
 }
 
@@ -532,6 +516,20 @@ fn print_tile(tile: &MahjongTile) {
 
     println!("{}", result);
 }
+
+fn remove_pon_tiles(deck: &mut Vec<MahjongTile>, card_to_remove: &MahjongTile) {
+    let mut tiles_removed = 0;
+    let mut i = 0;
+    while i < deck.len() && tiles_removed < 2 {
+        if &deck[i] == card_to_remove {
+            deck.remove(i);
+            tiles_removed += 1;
+        } else {
+            i += 1;
+        }
+    }
+}
+
 #[test]
 #[rustfmt::skip]
 fn test_find_pairs_melds() {

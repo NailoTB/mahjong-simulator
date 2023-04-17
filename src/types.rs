@@ -48,9 +48,6 @@ pub enum SeatWind {
 #[derive(Debug, Clone)]
 pub struct Player {
     pub points: i32,
-    pub hand: Vec<MahjongTile>,
-    pub open_hand: Vec<MahjongTile>,
-    pub discards: Vec<MahjongTile>,
     pub seat_wind: SeatWind,
     pub strategy: Strategy,
 }
@@ -59,9 +56,6 @@ impl Default for Player {
     fn default() -> Player {
         Player {
             points: 25000,
-            hand: Vec::new(),
-            open_hand: Vec::new(),
-            discards: Vec::new(),
             seat_wind: SeatWind::East,
             strategy: Strategy::new(
                 default_boolean_strategy,
@@ -75,54 +69,44 @@ impl Default for Player {
     }
 }
 
-impl Player {
-    pub fn move_tile_to_open_hand(&mut self, tile: &MahjongTile) -> bool {
-        if let Some(index) = self.hand.iter().position(|t| t == tile) {
-            self.open_hand.push(self.hand.remove(index));
-            true
-        } else {
-            false
-        }
-    }
-    pub fn hand_is_open(&self) -> bool {
-        !self.open_hand.is_empty()
-    }
-    pub fn get_closed_hand(&self) -> &Vec<MahjongTile> {
-        &self.hand
-    }
+#[derive(Debug, Clone)]
+pub struct PlayerTiles {
+    pub hand: Vec<Vec<MahjongTile>>,
+    pub open_hand: Vec<Vec<MahjongTile>>,
+    pub discards: Vec<Vec<MahjongTile>>,
+}
 
-    pub fn get_open_cards(&self) -> &Vec<MahjongTile> {
-        &self.open_hand
-    }
-    pub fn get_hand(&self) -> Vec<MahjongTile> {
-        let mut entire_hand = self.hand.clone();
-        entire_hand.append(&mut self.open_hand.clone());
-        entire_hand.sort();
-        entire_hand
-    }
-    pub fn sort_hand(&mut self) {
-        let _ = &self.hand.sort();
+impl Default for PlayerTiles {
+    fn default() -> Self {
+        let hand = vec![vec![]; 4];
+        let open_hand = vec![vec![]; 4];
+        let discards = vec![vec![]; 4];
+        Self {
+            hand,
+            open_hand,
+            discards,
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Strategy {
-    pub call_chi: fn(GameState) -> bool,
-    pub call_pon: fn(GameState) -> bool,
-    pub discard: fn(GameState) -> usize,
-    pub tsumo: fn(GameState) -> bool,
-    pub kan: fn(GameState) -> bool,
-    pub riichi: fn(GameState) -> bool,
+    pub call_chi: fn(bool) -> bool,
+    pub call_pon: fn(bool) -> bool,
+    pub discard: fn(bool) -> usize,
+    pub tsumo: fn(bool) -> bool,
+    pub kan: fn(bool) -> bool,
+    pub riichi: fn(bool) -> bool,
 }
 
 impl Strategy {
     fn new(
-        call_chi: fn(GameState) -> bool,
-        call_pon: fn(GameState) -> bool,
-        discard: fn(GameState) -> usize,
-        tsumo: fn(GameState) -> bool,
-        kan: fn(GameState) -> bool,
-        riichi: fn(GameState) -> bool,
+        call_chi: fn(bool) -> bool,
+        call_pon: fn(bool) -> bool,
+        discard: fn(bool) -> usize,
+        tsumo: fn(bool) -> bool,
+        kan: fn(bool) -> bool,
+        riichi: fn(bool) -> bool,
     ) -> Strategy {
         Strategy {
             call_chi,
@@ -135,24 +119,21 @@ impl Strategy {
     }
 }
 
-fn default_discard_strategy(_game_state: GameState) -> usize {
+fn default_discard_strategy(_strategy_input: bool) -> usize {
     0
 }
 
-fn default_boolean_strategy(_game_state: GameState) -> bool {
+fn default_boolean_strategy(_strategy_input: bool) -> bool {
     true
 }
 
 #[derive(Debug, Clone)]
-pub struct GameState {
-    pub players: [Player; 4],
+pub struct BoardTiles {
     pub wall: Vec<MahjongTile>,
     pub wall_dead: Vec<MahjongTile>,
     pub dora_indicators: Vec<MahjongTile>,
     pub dora_index: usize,
 }
-
-pub type Players = (Player, Player, Player, Player);
 
 pub type Hands = (
     Vec<MahjongTile>, // Wall
