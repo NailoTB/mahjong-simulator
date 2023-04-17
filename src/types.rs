@@ -37,7 +37,7 @@ impl Ord for MahjongTile {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SeatWind {
     East,
     South,
@@ -66,6 +66,17 @@ impl Default for Player {
                 default_boolean_strategy,
             ),
         }
+    }
+}
+
+impl Player {
+    pub fn next_wind(&mut self) {
+        self.seat_wind = match self.seat_wind {
+            SeatWind::East => SeatWind::South,
+            SeatWind::South => SeatWind::West,
+            SeatWind::West => SeatWind::North,
+            SeatWind::North => SeatWind::East,
+        };
     }
 }
 
@@ -133,6 +144,13 @@ pub struct BoardTiles {
     pub wall_dead: Vec<MahjongTile>,
     pub dora_indicators: Vec<MahjongTile>,
     pub dora_index: usize,
+}
+
+pub struct GameResult {
+    pub player_1_score: i32,
+    pub player_2_score: i32,
+    pub player_3_score: i32,
+    pub player_4_score: i32,
 }
 
 pub type Hands = (

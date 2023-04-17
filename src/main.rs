@@ -10,11 +10,13 @@ const GAMES: usize = 10;
 
 fn main() {
     let start_time = Instant::now();
+    let mut game_results: Vec<GameResult> = Vec::new();
     for game in 1..=GAMES {
         let mut players = initialize_players();
 
         let mut current_player_index: usize = 0;
-        for round in 1..=ROUNDS {
+        let mut round = 0;
+        while round < ROUNDS {
             let mut player_tiles = PlayerTiles::default();
 
             let (mut wall, wall_dead, dora_indicators) = initialize_wall();
@@ -50,12 +52,22 @@ fn main() {
 
                 if skip_draw {
                     skip_draw = false;
+                } else if board_tiles.wall.is_empty() {
+                    let player_1_wind = players[0].seat_wind.clone();
+                    scoring_tenpai(&mut player_tiles, &mut players);
+                    if players[0].seat_wind.clone() != player_1_wind {
+                        // If the wind has changed, dealer has changed so round passes
+                        round += 1;
+                    }
+                    round_ongoing = false;
+                    break;
                 } else {
                     draw_tile(
                         &mut board_tiles.wall,
                         &mut player_tiles.hand[current_player_index],
                     );
                 }
+
                 // Current player may tsumo
                 // Current player may kan
                 // Current player discards a tile
@@ -102,19 +114,33 @@ fn main() {
                 };
                 */
                 skip_chi = false;
-
-                // Check if the wall is empty
-                if board_tiles.wall.is_empty() {
-                    round_ongoing = false;
-                }
                 // Pass turn to the next player
                 //print_hand(&game_state.players[current_player_index].hand);
                 //print_hand(&game_state.players[current_player_index].open_hand);
                 //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
                 current_player_index = next_player_index;
+
+                round += 1 // DEBUG Temporary, as currently dealer rarely changes
             }
         }
+        let game_result = GameResult {
+            player_1_score: players[0].points,
+            player_2_score: players[1].points,
+            player_3_score: players[2].points,
+            player_4_score: players[3].points,
+        };
+        game_results.push(game_result);
     }
+    for game_result in &game_results {
+        println!(
+            "Player 1: {}, Player 2: {}, Player 3: {}, Player 4: {}",
+            game_result.player_1_score,
+            game_result.player_2_score,
+            game_result.player_3_score,
+            game_result.player_4_score,
+        );
+    }
+
     println!("Program took {:.2?} to execute", start_time.elapsed());
 }
 
@@ -526,6 +552,42 @@ fn remove_pon_tiles(deck: &mut Vec<MahjongTile>, card_to_remove: &MahjongTile) {
             tiles_removed += 1;
         } else {
             i += 1;
+        }
+    }
+}
+
+fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
+    let mut tenpai_players = 0;
+    let mut noten_players = 0;
+    for i in 0..=3 {
+        let (got_tenpai, _) = check_tenpai(&player_tiles.hand[i]);
+        if got_tenpai {
+            tenpai_players += 1;
+        } else {
+            noten_players += 1;
+        }
+    }
+
+    let mut change_winds = true;
+
+    if tenpai_players > 0 {
+        let winner_payout = 3000 / tenpai_players;
+        for i in 0..=3 {
+            let (got_tenpai, _) = check_tenpai(&player_tiles.hand[i]);
+            if got_tenpai {
+                players[i].points += winner_payout;
+                if players[i].seat_wind == SeatWind::East {
+                    change_winds = false;
+                }
+            } else {
+                players[i].points -= winner_payout / noten_players;
+            }
+        }
+    }
+
+    if change_winds {
+        for player in players {
+            player.next_wind();
         }
     }
 }
