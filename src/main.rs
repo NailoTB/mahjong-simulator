@@ -14,7 +14,6 @@ fn main() {
     for game in 1..=GAMES {
         let mut players = initialize_players();
 
-        let mut current_player_index: usize = 0;
         let mut round = 0;
         while round < ROUNDS {
             let mut player_tiles = PlayerTiles::default();
@@ -45,6 +44,7 @@ fn main() {
             let mut round_ongoing = true;
             let mut skip_draw = false;
             let mut skip_chi = false;
+            let mut current_player_index: usize = (round % 4).into();
             while round_ongoing {
                 let next_player_index = (current_player_index + 1) % 4;
                 // Current player draws a tile
@@ -55,8 +55,7 @@ fn main() {
                 } else if board_tiles.wall.is_empty() {
                     let player_1_wind = players[0].seat_wind.clone();
                     scoring_tenpai(&mut player_tiles, &mut players);
-                    if players[0].seat_wind.clone() != player_1_wind {
-                        // If the wind has changed, dealer has changed so round passes
+                    if players[0].seat_wind != player_1_wind {
                         round += 1;
                     }
                     round_ongoing = false;
@@ -119,8 +118,6 @@ fn main() {
                 //print_hand(&game_state.players[current_player_index].open_hand);
                 //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
                 current_player_index = next_player_index;
-
-                round += 1 // DEBUG Temporary, as currently dealer rarely changes
             }
         }
         let game_result = GameResult {
