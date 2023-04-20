@@ -57,14 +57,7 @@ impl Default for Player {
         Player {
             points: 25000,
             seat_wind: SeatWind::East,
-            strategy: Strategy::new(
-                default_boolean_strategy,
-                default_boolean_strategy,
-                default_discard_strategy,
-                default_boolean_strategy,
-                default_boolean_strategy,
-                default_boolean_strategy,
-            ),
+            strategy: Strategy::default()
         }
     }
 }
@@ -128,6 +121,19 @@ impl Strategy {
             riichi,
         }
     }
+}
+
+impl Default for Strategy {
+    fn default() -> Strategy {
+        Strategy {
+            call_chi: default_boolean_strategy,
+            call_pon: default_boolean_strategy,
+            discard: default_discard_strategy,
+            tsumo: default_boolean_strategy,
+            kan: default_boolean_strategy,
+            riichi: default_boolean_strategy,
+            }
+        }
 }
 
 fn default_discard_strategy(_strategy_input: bool) -> usize {
