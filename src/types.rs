@@ -57,7 +57,7 @@ impl Default for Player {
         Player {
             points: 25000,
             seat_wind: SeatWind::East,
-            strategy: Strategy::default()
+            strategy: Strategy::default(),
         }
     }
 }
@@ -95,22 +95,22 @@ impl Default for PlayerTiles {
 
 #[derive(Debug, Clone)]
 pub struct Strategy {
-    pub call_chi: fn(bool) -> bool,
-    pub call_pon: fn(bool) -> bool,
-    pub discard: fn(bool) -> usize,
-    pub tsumo: fn(bool) -> bool,
-    pub kan: fn(bool) -> bool,
-    pub riichi: fn(bool) -> bool,
+    pub call_chi: fn(StrategyInput) -> bool,
+    pub call_pon: fn(StrategyInput) -> bool,
+    pub discard: fn(StrategyInput) -> usize,
+    pub tsumo: fn(StrategyInput) -> bool,
+    pub kan: fn(StrategyInput) -> bool,
+    pub riichi: fn(StrategyInput) -> bool,
 }
 
 impl Strategy {
     fn new(
-        call_chi: fn(bool) -> bool,
-        call_pon: fn(bool) -> bool,
-        discard: fn(bool) -> usize,
-        tsumo: fn(bool) -> bool,
-        kan: fn(bool) -> bool,
-        riichi: fn(bool) -> bool,
+        call_chi: fn(StrategyInput) -> bool,
+        call_pon: fn(StrategyInput) -> bool,
+        discard: fn(StrategyInput) -> usize,
+        tsumo: fn(StrategyInput) -> bool,
+        kan: fn(StrategyInput) -> bool,
+        riichi: fn(StrategyInput) -> bool,
     ) -> Strategy {
         Strategy {
             call_chi,
@@ -132,16 +132,22 @@ impl Default for Strategy {
             tsumo: default_boolean_strategy,
             kan: default_boolean_strategy,
             riichi: default_boolean_strategy,
-            }
         }
+    }
 }
 
-fn default_discard_strategy(_strategy_input: bool) -> usize {
+fn default_discard_strategy(_strategy_input: StrategyInput) -> usize {
     0
 }
 
-fn default_boolean_strategy(_strategy_input: bool) -> bool {
+fn default_boolean_strategy(_strategy_input: StrategyInput) -> bool {
     true
+}
+
+#[derive(Debug, Clone)]
+pub struct StrategyInput {
+    pub hand: Vec<MahjongTile>,
+    pub discards: Vec<Vec<MahjongTile>>,
 }
 
 #[derive(Debug, Clone)]

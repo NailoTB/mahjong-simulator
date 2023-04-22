@@ -71,12 +71,16 @@ fn main() {
                 // Current player may kan
                 // Current player discards a tile
                 // Placeholder - Need to pass relevant vectors to strategies (hand, discards, dora indicator..)
-                let strategy_input = true;
+                //let strategy_input = true;
+                let strategy_input = StrategyInput {
+                    hand: player_tiles.hand[current_player_index].clone(),
+                    discards: player_tiles.discards.clone(),
+                };
 
                 move_tile(
                     &mut player_tiles.hand[current_player_index],
                     &mut player_tiles.discards[current_player_index],
-                    (players[current_player_index].strategy.discard)(strategy_input),
+                    (players[current_player_index].strategy.discard)(strategy_input.clone()),
                 );
                 let discarded = *player_tiles.discards[current_player_index].last().unwrap();
 
@@ -85,7 +89,7 @@ fn main() {
                 for i in 0..=3 {
                     if i != current_player_index
                         && can_pon(&player_tiles.hand[i], &discarded)
-                        && (players[current_player_index].strategy.call_pon)(strategy_input)
+                        && (players[current_player_index].strategy.call_pon)(strategy_input.clone())
                     {
                         //println!("some guy pon'd a {:?}", discarded);
                         player_tiles.hand[i].sort();
