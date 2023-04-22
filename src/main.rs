@@ -185,8 +185,13 @@ fn initialize_players() -> Vec<Player> {
     let a = Player {
         ..Default::default()
     };
+    let pinfu = Strategy {
+        discard: pinfu_hunter,
+        ..Default::default()
+      };
     let b = Player {
         seat_wind: SeatWind::South,
+        strategy: pinfu,
         ..Default::default()
     };
     let c = Player {
@@ -200,7 +205,27 @@ fn initialize_players() -> Vec<Player> {
 
     vec![a, b, c, d]
 }
+fn pinfu_hunter(strat : StrategyInput) -> usize{
+    let mut own_hand = strat.hand.clone();
+    own_hand.sort();
+    let partial_hand = get_partial_completion(&own_hand);
+    if partial_hand.is_empty(){
+        //println!("Partial hand is empty, hand was complete!");
+        return 13;
+    }
+    for tile in &partial_hand{
+        if tile.suit == Suit::Sangen || tile.suit == Suit::Kaze {
+            return find_tile_in_hand(&strat.hand, tile);
+        }
+    }
+    for tile in &partial_hand{
+        if tile.suit != Suit::Sangen && tile.suit != Suit::Kaze && (tile.value == 1 || tile.value == 9) {
+            return find_tile_in_hand(&strat.hand, tile);
+        }
+    }
+    return find_tile_in_hand(&strat.hand, &partial_hand[0]);
 
+}
 fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     let a = wall.split_off(wall.len() - 13);
     let b = wall.split_off(wall.len() - 13);
@@ -250,7 +275,15 @@ fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>, t
     let tile = hand_from.remove(tile_index);
     hand_to.push(tile);
 }
-
+fn find_tile_in_hand(hand: &[MahjongTile], tile: &MahjongTile) -> usize{
+    for tile_index in 0..hand.len(){
+        if tile == &hand[tile_index] {
+            return tile_index;
+        }
+    }
+    println!("tile not found");
+    14
+}
 fn find_pairs_melds(hand: &[MahjongTile]) -> (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) {
     let (mut result_threes, mut result_pairs): (Vec<Vec<MahjongTile>>, Vec<Vec<MahjongTile>>) =
         (Vec::new(), Vec::new());
@@ -368,6 +401,50 @@ fn find_wait(hand: &[MahjongTile]) -> (bool, Vec<MahjongTile>) {
     (!waits.is_empty(), waits)
 }
 
+fn get_partial_completion(hand: &[MahjongTile]) -> Vec<MahjongTile> {
+    let mut first_copy = hand.to_vec();
+    let mut partial_hand = hand.to_vec();
+
+    first_copy.sort();
+
+    let (melds, mut pairs) = find_pairs_melds(&first_copy);
+    pairs.extend(melds.clone());
+    let n_melds = pairs.len();
+
+    for meld1 in &melds {
+        let mut second_copy = first_copy.to_vec();
+
+        for tile in meld1 {
+            if let Some(tilepos) = second_copy.iter().position(|x| x == tile) {
+                second_copy.remove(tilepos);
+            }
+        }
+
+        for start_index in 0..n_melds {
+            let mut third_copy = second_copy.to_vec();
+
+            for meld_index in 0..n_melds {
+                let meld2 = &pairs[(start_index + meld_index) % n_melds];
+
+                if is_subset(&third_copy, meld2) {
+                    for tile in meld2 {
+                        if let Some(tilepos) = third_copy.iter().position(|x| x == tile) {
+                            third_copy.remove(tilepos);
+                        }
+                    }
+                } else {
+                    continue;
+                }
+            }
+            if third_copy.len() < partial_hand.len()  {
+                partial_hand = third_copy;
+            }
+        }
+    }
+    partial_hand
+}
+
+
 fn is_complete(hand: &[MahjongTile]) -> bool {
     let mut first_copy = hand.to_vec();
     first_copy.sort();
@@ -401,7 +478,7 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
                     continue;
                 }
             }
-            if third_copy.is_empty() {
+            if third_copy.is_empty()  {
                 return true;
             }
         }
@@ -881,7 +958,7 @@ fn test_super_tenpai_happoubijin() {
         ];
 
     hand.sort();
-    let (tenpai1, mut waits2) = check_tenpai(&hand);
+    let (tenpai1, waits2) = check_tenpai(&hand);
     print_hand(&hand);
     print_hand(&waits2);
     assert_eq!(waits2, expected_output);

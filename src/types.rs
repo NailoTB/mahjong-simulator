@@ -141,7 +141,7 @@ fn default_discard_strategy(_strategy_input: StrategyInput) -> usize {
 }
 
 fn default_boolean_strategy(_strategy_input: StrategyInput) -> bool {
-    true
+    false
 }
 
 #[derive(Debug, Clone)]
