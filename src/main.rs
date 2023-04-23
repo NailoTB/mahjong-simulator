@@ -134,11 +134,16 @@ fn main() {
     }
     for game_result in &game_results {
         println!(
-            "Player 1: {}, Player 2: {}, Player 3: {}, Player 4: {}",
+            "Player 1: {}, Player 2: {}, Player 3: {}, Player 4: {}, Total points deviation: {}",
             game_result.player_1_score,
             game_result.player_2_score,
             game_result.player_3_score,
             game_result.player_4_score,
+            game_result.player_1_score
+                + game_result.player_2_score
+                + game_result.player_3_score
+                + game_result.player_4_score
+                - 100000, // Should be 0
         );
     }
 
@@ -188,7 +193,7 @@ fn initialize_players() -> Vec<Player> {
     let pinfu = Strategy {
         discard: pinfu_hunter,
         ..Default::default()
-      };
+    };
     let b = Player {
         seat_wind: SeatWind::South,
         strategy: pinfu,
@@ -205,26 +210,28 @@ fn initialize_players() -> Vec<Player> {
 
     vec![a, b, c, d]
 }
-fn pinfu_hunter(strat : StrategyInput) -> usize{
+fn pinfu_hunter(strat: StrategyInput) -> usize {
     let mut own_hand = strat.hand.clone();
     own_hand.sort();
     let partial_hand = get_partial_completion(&own_hand);
-    if partial_hand.is_empty(){
+    if partial_hand.is_empty() {
         //println!("Partial hand is empty, hand was complete!");
         return 13;
     }
-    for tile in &partial_hand{
+    for tile in &partial_hand {
         if tile.suit == Suit::Sangen || tile.suit == Suit::Kaze {
             return find_tile_in_hand(&strat.hand, tile);
         }
     }
-    for tile in &partial_hand{
-        if tile.suit != Suit::Sangen && tile.suit != Suit::Kaze && (tile.value == 1 || tile.value == 9) {
+    for tile in &partial_hand {
+        if tile.suit != Suit::Sangen
+            && tile.suit != Suit::Kaze
+            && (tile.value == 1 || tile.value == 9)
+        {
             return find_tile_in_hand(&strat.hand, tile);
         }
     }
     return find_tile_in_hand(&strat.hand, &partial_hand[0]);
-
 }
 fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     let a = wall.split_off(wall.len() - 13);
@@ -275,8 +282,8 @@ fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>, t
     let tile = hand_from.remove(tile_index);
     hand_to.push(tile);
 }
-fn find_tile_in_hand(hand: &[MahjongTile], tile: &MahjongTile) -> usize{
-    for tile_index in 0..hand.len(){
+fn find_tile_in_hand(hand: &[MahjongTile], tile: &MahjongTile) -> usize {
+    for tile_index in 0..hand.len() {
         if tile == &hand[tile_index] {
             return tile_index;
         }
@@ -436,14 +443,13 @@ fn get_partial_completion(hand: &[MahjongTile]) -> Vec<MahjongTile> {
                     continue;
                 }
             }
-            if third_copy.len() < partial_hand.len()  {
+            if third_copy.len() < partial_hand.len() {
                 partial_hand = third_copy;
             }
         }
     }
     partial_hand
 }
-
 
 fn is_complete(hand: &[MahjongTile]) -> bool {
     let mut first_copy = hand.to_vec();
@@ -478,7 +484,7 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
                     continue;
                 }
             }
-            if third_copy.is_empty()  {
+            if third_copy.is_empty() {
                 return true;
             }
         }
@@ -558,7 +564,7 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
 
     let mut change_winds = true;
 
-    if tenpai_players > 0 {
+    if tenpai_players != 4 && noten_players != 4 {
         let winner_payout = 3000 / tenpai_players;
         for i in 0..=3 {
             let (got_tenpai, _) = check_tenpai(&player_tiles.hand[i]);
@@ -567,6 +573,8 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
                 if players[i].seat_wind == SeatWind::East {
                     change_winds = false;
                 }
+            } else if noten_players == 2 {
+                players[i].points -= winner_payout;
             } else {
                 players[i].points -= winner_payout / noten_players;
             }
