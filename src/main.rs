@@ -609,6 +609,10 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
     }
 
     let mut change_winds = true;
+    
+    if tenpai_players == 4{
+        change_winds = false;
+    }
 
     if tenpai_players != 4 && noten_players != 4 {
         let winner_payout = 3000 / tenpai_players;
