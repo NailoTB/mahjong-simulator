@@ -187,13 +187,19 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
 }
 
 fn initialize_players() -> Vec<Player> {
-    let a = Player {
-        ..Default::default()
-    };
     let pinfu = Strategy {
         discard: pinfu_hunter,
         ..Default::default()
     };
+    let standard = Strategy {
+        discard: standard_discarder,
+        ..Default::default()
+    };
+    let a = Player {
+        strategy: standard.clone(),
+        ..Default::default()
+    };
+
     let b = Player {
         seat_wind: SeatWind::South,
         strategy: pinfu,
@@ -201,10 +207,12 @@ fn initialize_players() -> Vec<Player> {
     };
     let c = Player {
         seat_wind: SeatWind::West,
+        strategy: standard.clone(),
         ..Default::default()
     };
     let d = Player {
         seat_wind: SeatWind::North,
+        strategy: standard.clone(),
         ..Default::default()
     };
 
@@ -218,21 +226,48 @@ fn pinfu_hunter(strat: StrategyInput) -> usize {
         //println!("Partial hand is empty, hand was complete!");
         return 13;
     }
+    if partial_hand.len() == 1 {
+        return find_tile_in_hand(&strat.hand, &partial_hand[0]);
+    }
+
     for tile in &partial_hand {
         if tile.suit == Suit::Sangen || tile.suit == Suit::Kaze {
             return find_tile_in_hand(&strat.hand, tile);
         }
     }
+    let mut skip_following = false;
+    for tile_index in 0..partial_hand.len() - 1 {
+        let tile = &partial_hand[tile_index];
+        let right = &partial_hand[tile_index + 1];
+        if skip_following {
+            skip_following = false;
+            continue;
+        }
+        if tile.value + 1 == right.value && tile.suit == right.suit {
+            //keep the tile and the next tile
+            skip_following = true;
+            continue;
+        }
+        return find_tile_in_hand(&strat.hand, tile);
+    }
     for tile in &partial_hand {
-        if tile.suit != Suit::Sangen
-            && tile.suit != Suit::Kaze
-            && (tile.value == 1 || tile.value == 9)
-        {
+        if tile.value == 1 || tile.value == 9 {
             return find_tile_in_hand(&strat.hand, tile);
         }
     }
-    return find_tile_in_hand(&strat.hand, &partial_hand[0]);
+    return find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1]);
 }
+fn standard_discarder(strat: StrategyInput) -> usize {
+    let mut own_hand = strat.hand.clone();
+    own_hand.sort();
+    let partial_hand = get_partial_completion(&own_hand);
+    if partial_hand.is_empty() {
+        //println!("Partial hand is empty, hand was complete!");
+        return 13;
+    }
+    return find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1]);
+}
+
 fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
     let a = wall.split_off(wall.len() - 13);
     let b = wall.split_off(wall.len() - 13);
@@ -456,12 +491,24 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
     first_copy.sort();
 
     let (melds, mut pairs) = find_pairs_melds(&first_copy);
+
+    if melds.len() == 0 {
+        let mut second_copy = first_copy.to_vec();
+        for pair in &pairs {
+            for tile in pair {
+                if let Some(tilepos) = second_copy.iter().position(|x| x == tile) {
+                    second_copy.remove(tilepos);
+                }
+            }
+        }
+        return second_copy.is_empty();
+    }
+
     pairs.extend(melds.clone());
     let n_melds = pairs.len();
 
     for meld1 in &melds {
         let mut second_copy = first_copy.to_vec();
-
         for tile in meld1 {
             if let Some(tilepos) = second_copy.iter().position(|x| x == tile) {
                 second_copy.remove(tilepos);
@@ -470,7 +517,6 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
 
         for start_index in 0..n_melds {
             let mut third_copy = second_copy.to_vec();
-
             for meld_index in 0..n_melds {
                 let meld2 = &pairs[(start_index + meld_index) % n_melds];
 
@@ -575,6 +621,8 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
                 }
             } else if noten_players == 2 {
                 players[i].points -= winner_payout;
+            } else if noten_players == 1 {
+                players[i].points -= winner_payout * tenpai_players;
             } else {
                 players[i].points -= winner_payout / noten_players;
             }
@@ -972,5 +1020,31 @@ fn test_super_tenpai_happoubijin() {
     assert_eq!(waits2, expected_output);
     assert_eq!(tenpai1, true);
     println!("Test took {:.2?} to execute", start_time.elapsed());
+
+}
+#[test]
+#[rustfmt::skip]
+fn chiitoi_completion() {
+
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },   
+        MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Sangen, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Kaze, value: 1, is_dora: false },
+    ];
+    print_hand(&hand);
+    hand.sort();
+    let complete = is_complete(&hand);
+    assert_eq!(complete, true);
 
 }
