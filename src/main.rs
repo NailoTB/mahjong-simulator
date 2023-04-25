@@ -1,7 +1,8 @@
 use std::time::Instant;
 mod types;
-use types::*;
 use types::mahjong_tile::*;
+use types::*;
+use num_traits::pow;
 const ROUNDS: u8 = 4 * 2;
 const GAMES: usize = 10;
 
@@ -330,18 +331,22 @@ fn scoring_tsumo(
 ) {
     let is_dealer_win = players[winning_player_index].seat_wind == SeatWind::East;
 
-    let (base_score, dealer_score) = calculate_hand_score(&player_tiles.hand[winning_player_index]);
+    let base_points = calculate_hand_score(
+        &player_tiles.hand[winning_player_index],
+        &player_tiles.open_hand[winning_player_index],
+        true,
+    );
 
     for (index, player) in players.iter_mut().enumerate().take(3 + 1) {
         if index == winning_player_index {
             match is_dealer_win {
-                true => player.points += dealer_score * 3,
-                false => player.points += dealer_score + base_score * 2,
+                true => player.points  += 3*round_up_to_100(2*base_points),
+                false => player.points += round_up_to_100(2*base_points) + 2*round_up_to_100(base_points),
             }
         } else if is_dealer_win || player.seat_wind == SeatWind::East {
-            player.points -= dealer_score;
+            player.points -= round_up_to_100(2*base_points);
         } else {
-            player.points -= base_score;
+            player.points -= round_up_to_100(base_points);
         }
     }
 
@@ -352,7 +357,88 @@ fn scoring_tsumo(
     }
 }
 
-fn calculate_hand_score(hand: &[MahjongTile]) -> (i32, i32) {
-    // TODO: Implement proper hand scoring calculation
-    (1000, 2000)
+fn calculate_hand_score(
+    hand: &[MahjongTile],
+    open_hand: &[MahjongTile],
+    tsumo: bool,
+) -> i32 {
+    let mut han_score = 0;
+    let mut fu_score = 20;
+
+    let hand_copy = hand.to_vec();
+    let meld_list = construct_unique_meld_set(&hand_copy);
+
+    let winning_tile = &hand_copy[hand_copy.len() - 1];
+
+    let mut twopoint_wait_fu = false;
+    let mut zeropoint_wait_fu = false;
+
+    for meld in &meld_list {
+        let is_triplet = meld[1].value - meld[0].value == 0;
+        let is_straight = meld[1].value - meld[0].value == 1;
+        if meld.len() == 2 && meld[0].suit == Suit::Sangen{
+            //also check if kaze is round or seat
+            fu_score += 2;
+        }
+        if meld.contains(winning_tile) {
+            if meld.len() == 2 {
+                twopoint_wait_fu = true; //tanki
+                continue;
+            }
+            if is_straight {
+                let win_index = find_tile_in_hand(meld, winning_tile);
+                if win_index == 1
+                    || (win_index == 0 && winning_tile.value == 7)
+                    || (win_index == 2 && winning_tile.value == 3)
+                {
+                    twopoint_wait_fu = true; //kanchan and penchan
+                } else {
+                    zeropoint_wait_fu = true; //ryanmen
+                }
+            }
+        }
+        // this construction only works for tsumo
+        if is_triplet {
+            let triplet_suit = meld[0].suit;
+            let triplet_value = meld[0].value;
+
+            if triplet_suit == Suit::Sangen
+                || triplet_suit == Suit::Kaze
+                || triplet_value == 1
+                || triplet_value == 9
+            {
+                fu_score += 8;
+            } else {
+                fu_score += 4;
+            }
+            if triplet_suit == Suit::Sangen {
+                //Add kaze seat and round score
+                han_score += 1;
+            }
+        }
+    }
+    if zeropoint_wait_fu && fu_score == 20 {
+        han_score += 1; //Pinfu
+    } else if twopoint_wait_fu {
+        fu_score += 2; //from wait
+    }
+    if tsumo && fu_score != 20 {
+        han_score += 1; //Tsumo
+        fu_score += 2; 
+    }
+    for tile in &hand_copy {
+        if tile.is_dora {
+            han_score += 1; //Doras
+        }
+    }
+    fu_score = round_up_to_10(fu_score);
+    let base_score = fu_score * pow(2, 2 + han_score);
+    base_score
+}
+
+fn round_up_to_100(number: i32) -> i32 {
+    (number + 99) / 100 * 100
+}
+fn round_up_to_10(number: i32) -> i32 {
+    (number + 9) / 10 * 10
 }

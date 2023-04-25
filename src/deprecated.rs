@@ -89,3 +89,65 @@ fn is_complete_slow(hand: &[MahjongTile]) -> bool {
     }
     false
 }
+
+pub fn construct_unique_meld_set(hand: &[MahjongTile]) -> Vec<Vec<Vec<MahjongTile>>> {
+    let mut first_copy = hand.to_vec();
+    first_copy.sort();
+
+    let (melds, mut pairs) = find_pairs_melds(&first_copy);
+
+    pairs.extend(melds.clone());
+    let n_melds = pairs.len();
+    let mut result_tensor = Vec::new();
+
+    for meld1 in &melds {
+        let mut second_copy = first_copy.to_vec();
+        for tile in meld1 {
+            if let Some(tilepos) = second_copy.iter().position(|x| x == tile) {
+                second_copy.remove(tilepos);
+            }
+        }
+
+        for start_index in 0..n_melds {
+            let mut pair_counter = 0;
+            let mut results = Vec::new();
+            results.push(meld1.clone());
+
+            let mut third_copy = second_copy.to_vec();
+            for meld_index in 0..n_melds {
+                let meld2 = &pairs[(start_index + meld_index) % n_melds];
+
+                if is_subset(&third_copy, meld2) {
+                    if meld2.len() == 2 {
+                        pair_counter += 1;
+                    }
+                    results.push(meld2.clone());
+
+                    for tile in meld2 {
+                        if let Some(tilepos) = third_copy.iter().position(|x| x == tile) {
+                            third_copy.remove(tilepos);
+                        }
+                    }
+                } else {
+                    continue;
+                }
+            }
+            if third_copy.is_empty() && pair_counter == 1 {
+                result_tensor.push(results);
+            }
+        }
+    }
+    let mut cleaned_tensor: Vec<Vec<_>> = result_tensor
+        .iter()
+        .map(|inner_vec| {
+            let mut cloned_vec = inner_vec.clone();
+            cloned_vec.sort();
+            cloned_vec
+        })
+        .collect();
+
+    cleaned_tensor.sort();
+    cleaned_tensor.dedup();
+
+    return cleaned_tensor;
+}

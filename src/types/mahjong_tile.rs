@@ -378,6 +378,77 @@ pub fn is_complete(hand: &[MahjongTile]) -> bool {
     false
 }
 
+pub fn construct_unique_meld_set(hand: &[MahjongTile]) -> Vec<Vec<MahjongTile>> {
+    let mut first_copy = hand.to_vec();
+    first_copy.sort();
+
+    let (melds, mut pairs) = find_pairs_melds(&first_copy);
+
+    pairs.extend(melds.clone());
+    let n_melds = pairs.len();
+    let mut result_tensor = Vec::new();
+
+    for meld1 in &melds {
+        let mut second_copy = first_copy.to_vec();
+        for tile in meld1 {
+            if let Some(tilepos) = second_copy.iter().position(|x| x == tile) {
+                second_copy.remove(tilepos);
+            }
+        }
+
+        for start_index in 0..n_melds {
+            let mut pair_counter = 0;
+            let mut results = Vec::new();
+            results.push(meld1.clone());
+
+            let mut third_copy = second_copy.to_vec();
+            for meld_index in 0..n_melds {
+                let meld2 = &pairs[(start_index + meld_index) % n_melds];
+
+                if is_subset(&third_copy, meld2) {
+                    if meld2.len() == 2 {
+                        pair_counter += 1;
+                    }
+                    results.push(meld2.clone());
+
+                    for tile in meld2 {
+                        if let Some(tilepos) = third_copy.iter().position(|x| x == tile) {
+                            third_copy.remove(tilepos);
+                        }
+                    }
+                } else {
+                    continue;
+                }
+            }
+            if third_copy.is_empty() && pair_counter == 1 {
+                result_tensor.push(results);
+            }
+        }
+    }
+    let mut cleaned_tensor: Vec<Vec<_>> = result_tensor
+        .iter()
+        .map(|inner_vec| {
+            let mut cloned_vec = inner_vec.clone();
+            cloned_vec.sort();
+            cloned_vec
+        })
+        .collect();
+
+    cleaned_tensor.sort();
+    cleaned_tensor.dedup();
+    if cleaned_tensor.len() != 1 {
+        println!("Omg you found a rare hand!!");
+        println!("Printing meldtensor:");
+        for meldlist in &cleaned_tensor {
+            println!("Melds:");
+            for meld in meldlist {
+                print_hand(&meld);
+            }
+        }
+    }
+    return cleaned_tensor[0].clone();
+}
+
 pub fn remove_pon_tiles(deck: &mut Vec<MahjongTile>, card_to_remove: &MahjongTile) {
     let mut tiles_removed = 0;
     let mut i = 0;
@@ -824,5 +895,71 @@ fn pair_mix_completion() {
     hand.sort();
     let complete = is_complete(&hand);
     assert_eq!(complete, false);
+
+}
+#[test]
+#[rustfmt::skip]
+fn test_nobetan() {
+        //1112344m33p22345s
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+    ];
+    print_hand(&hand);
+    hand.sort();
+
+
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },
+        ];
+
+
+    let (_, waits) = check_tenpai(&hand);
+    assert_eq!(waits, expected_output);
+
+}
+
+#[test]
+#[rustfmt::skip]
+fn test_hand_construction() {
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+    ];
+    print_hand(&hand);
+    hand.sort();
+
+    let hand_melds = construct_unique_meld_set(&hand);
+    for meld in hand_melds {
+        print_hand(&meld);
+}
+    let expected_output = vec![
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },
+        ];
 
 }
