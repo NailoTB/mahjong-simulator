@@ -15,7 +15,12 @@ fn main() {
         let mut players = initialize_players();
 
         let mut round = 0;
-        while round < ROUNDS {
+        'rounds: while round < ROUNDS {
+            for i in 0..=3 {
+                if players[i].points < 0 {
+                    break 'rounds;
+                }
+            }
             let mut player_tiles = PlayerTiles::default();
 
             let (mut wall, wall_dead, dora_indicators) = initialize_wall();
