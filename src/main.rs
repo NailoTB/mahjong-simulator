@@ -197,17 +197,20 @@ fn initialize_wall() -> (Vec<MahjongTile>, Vec<MahjongTile>, Vec<MahjongTile>) {
 fn initialize_players() -> Vec<Player> {
     let pinfu = Strategy {
         discard: pinfu_hunter,
+        call_chi: never_open_hand,
+        call_pon: never_open_hand,
         ..Default::default()
     };
     let standard = Strategy {
         discard: standard_discarder,
+        call_chi: never_open_hand,
+        call_pon: never_open_hand,
         ..Default::default()
     };
     let a = Player {
         strategy: standard.clone(),
         ..Default::default()
     };
-
     let b = Player {
         seat_wind: SeatWind::South,
         strategy: pinfu,
@@ -226,6 +229,11 @@ fn initialize_players() -> Vec<Player> {
 
     vec![a, b, c, d]
 }
+
+fn never_open_hand(_strat: StrategyInput) -> bool {
+    false
+}
+
 fn pinfu_hunter(strat: StrategyInput) -> usize {
     let mut own_hand = strat.hand.clone();
     own_hand.sort();
@@ -522,13 +530,16 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
                 second_copy.remove(tilepos);
             }
         }
-
         for start_index in 0..n_melds {
+            let mut pair_counter = 0;
             let mut third_copy = second_copy.to_vec();
             for meld_index in 0..n_melds {
                 let meld2 = &pairs[(start_index + meld_index) % n_melds];
 
                 if is_subset(&third_copy, meld2) {
+                    if meld2.len() == 2{
+                        pair_counter += 1;
+                    }
                     for tile in meld2 {
                         if let Some(tilepos) = third_copy.iter().position(|x| x == tile) {
                             third_copy.remove(tilepos);
@@ -538,7 +549,7 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
                     continue;
                 }
             }
-            if third_copy.is_empty() {
+            if third_copy.is_empty() && pair_counter == 1 {
                 return true;
             }
         }
@@ -1095,5 +1106,31 @@ fn chiitoi_completion() {
     hand.sort();
     let complete = is_complete(&hand);
     assert_eq!(complete, true);
+
+}
+#[test]
+#[rustfmt::skip]
+fn pair_mix_completion() {
+        //1112344m33p22345s
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 1, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+    ];
+    print_hand(&hand);
+    hand.sort();
+    let complete = is_complete(&hand);
+    assert_eq!(complete, false);
 
 }
