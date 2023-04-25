@@ -1,41 +1,5 @@
-use std::cmp::{Ordering, PartialOrd};
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Suit {
-    Manzu,
-    Pinzu,
-    Souzu,
-    Kaze,
-    Sangen,
-}
-
-#[derive(Debug, Copy, Clone, Eq)]
-pub struct MahjongTile {
-    pub suit: Suit,
-    pub value: u8,
-    pub is_dora: bool,
-}
-
-impl PartialOrd for MahjongTile {
-    fn partial_cmp(&self, other: &MahjongTile) -> Option<Ordering> {
-        match self.suit.partial_cmp(&other.suit) {
-            Some(Ordering::Equal) => self.value.partial_cmp(&other.value),
-            other => other,
-        }
-    }
-}
-
-impl PartialEq for MahjongTile {
-    fn eq(&self, other: &Self) -> bool {
-        self.suit == other.suit && self.value == other.value
-    }
-}
-
-impl Ord for MahjongTile {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
+pub mod mahjong_tile;
+use mahjong_tile::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SeatWind {
@@ -164,11 +128,3 @@ pub struct GameResult {
     pub player_3_score: i32,
     pub player_4_score: i32,
 }
-
-pub type Hands = (
-    Vec<MahjongTile>, // Wall
-    Vec<MahjongTile>,
-    Vec<MahjongTile>,
-    Vec<MahjongTile>,
-    Vec<MahjongTile>,
-);
