@@ -16,8 +16,8 @@ fn main() {
 
         let mut round = 0;
         'rounds: while round < ROUNDS {
-            for i in 0..=3 {
-                if players[i].points < 0 {
+            for player in players.iter().take(3 + 1) {
+                if player.points < 0 {
                     break 'rounds;
                 }
             }
@@ -64,7 +64,7 @@ fn main() {
                         round += 1;
                     }
                     round_ongoing = false;
-                    break;
+                    break 'round;
                 } else {
                     draw_tile(
                         &mut board_tiles.wall,
@@ -82,7 +82,6 @@ fn main() {
                     && (players[current_player_index].strategy.tsumo)(strategy_input.clone())
                 {
                     scoring_tsumo(&mut player_tiles, &mut players, current_player_index);
-                    round_ongoing = false;
                     break 'round;
                 }
                 // Current player may kan
@@ -228,7 +227,7 @@ fn initialize_players() -> Vec<Player> {
     };
     let d = Player {
         seat_wind: SeatWind::North,
-        strategy: standard.clone(),
+        strategy: standard,
         ..Default::default()
     };
 
@@ -276,7 +275,7 @@ fn pinfu_hunter(strat: StrategyInput) -> usize {
             return find_tile_in_hand(&strat.hand, tile);
         }
     }
-    return find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1]);
+    find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1])
 }
 fn standard_discarder(strat: StrategyInput) -> usize {
     let mut own_hand = strat.hand.clone();
@@ -286,7 +285,7 @@ fn standard_discarder(strat: StrategyInput) -> usize {
         //println!("Partial hand is empty, hand was complete!");
         return 13;
     }
-    return find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1]);
+    find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1])
 }
 
 fn draw_hands(mut wall: Vec<MahjongTile>) -> Hands {
@@ -339,7 +338,7 @@ fn move_tile(hand_from: &mut Vec<MahjongTile>, hand_to: &mut Vec<MahjongTile>, t
     hand_to.push(tile);
 }
 fn find_tile_in_hand(hand: &[MahjongTile], tile: &MahjongTile) -> usize {
-    for tile_index in 0..hand.len() {
+    for (tile_index, _) in hand.iter().enumerate() {
         if tile == &hand[tile_index] {
             return tile_index;
         }
@@ -513,7 +512,7 @@ fn is_complete(hand: &[MahjongTile]) -> bool {
 
     let (melds, mut pairs) = find_pairs_melds(&first_copy);
 
-    if melds.len() == 0 {
+    if melds.is_empty() {
         let mut second_copy = first_copy.to_vec();
         for pair in &pairs {
             for tile in pair {
@@ -640,19 +639,19 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
 
     if tenpai_players != 4 && noten_players != 4 {
         let winner_payout = 3000 / tenpai_players;
-        for i in 0..=3 {
-            let (got_tenpai, _) = check_tenpai(&player_tiles.hand[i]);
+        for (index, player) in players.iter_mut().enumerate().take(3 + 1) {
+            let (got_tenpai, _) = check_tenpai(&player_tiles.hand[index]);
             if got_tenpai {
-                players[i].points += winner_payout;
-                if players[i].seat_wind == SeatWind::East {
+                player.points += winner_payout;
+                if player.seat_wind == SeatWind::East {
                     change_winds = false;
                 }
             } else if noten_players == 2 {
-                players[i].points -= winner_payout;
+                player.points -= winner_payout;
             } else if noten_players == 1 {
-                players[i].points -= winner_payout * tenpai_players;
+                player.points -= winner_payout * tenpai_players;
             } else {
-                players[i].points -= winner_payout / noten_players;
+                player.points -= winner_payout / noten_players;
             }
         }
     }
@@ -669,23 +668,20 @@ fn scoring_tsumo(
     players: &mut Vec<Player>,
     winning_player_index: usize,
 ) {
-    let is_dealer_win = match players[winning_player_index].seat_wind == SeatWind::East {
-        true => true,
-        false => false,
-    };
+    let is_dealer_win = players[winning_player_index].seat_wind == SeatWind::East;
 
     let (base_score, dealer_score) = calculate_hand_score(&player_tiles.hand[winning_player_index]);
 
-    for i in 0..=3 {
-        if i == winning_player_index {
+    for (index, player) in players.iter_mut().enumerate().take(3 + 1) {
+        if index == winning_player_index {
             match is_dealer_win {
-                true => players[i].points += dealer_score * 3,
-                false => players[i].points += dealer_score + base_score * 2,
+                true => player.points += dealer_score * 3,
+                false => player.points += dealer_score + base_score * 2,
             }
-        } else if is_dealer_win || players[i].seat_wind == SeatWind::East {
-            players[i].points -= dealer_score;
+        } else if is_dealer_win || player.seat_wind == SeatWind::East {
+            player.points -= dealer_score;
         } else {
-            players[i].points -= base_score;
+            player.points -= base_score;
         }
     }
 
