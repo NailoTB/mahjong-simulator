@@ -45,7 +45,7 @@ fn main() {
             let mut skip_draw = false;
             let mut skip_chi = false;
             let mut current_player_index: usize = (round % 4).into();
-            while round_ongoing {
+            'round: while round_ongoing {
                 let next_player_index = (current_player_index + 1) % 4;
                 // Current player draws a tile
                 player_tiles.hand[current_player_index].sort();
@@ -67,15 +67,23 @@ fn main() {
                     );
                 }
 
-                // Current player may tsumo
-                // Current player may kan
-                // Current player discards a tile
-                // Placeholder - Need to pass relevant vectors to strategies (hand, discards, dora indicator..)
-                //let strategy_input = true;
                 let strategy_input = StrategyInput {
                     hand: player_tiles.hand[current_player_index].clone(),
                     discards: player_tiles.discards.clone(),
                 };
+
+                // Current player may tsumo
+                if is_complete(&player_tiles.hand[current_player_index])
+                    && (players[current_player_index].strategy.tsumo)(strategy_input.clone())
+                {
+                    scoring_tsumo(&mut player_tiles, &mut players, current_player_index);
+                    round_ongoing = false;
+                    break 'round;
+                }
+                // Current player may kan
+                // Current player discards a tile
+                // Placeholder - Need to pass relevant vectors to strategies (hand, discards, dora indicator..)
+                //let strategy_input = true;
 
                 move_tile(
                     &mut player_tiles.hand[current_player_index],
@@ -609,8 +617,8 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
     }
 
     let mut change_winds = true;
-    
-    if tenpai_players == 4{
+
+    if tenpai_players == 4 {
         change_winds = false;
     }
 
@@ -638,6 +646,43 @@ fn scoring_tenpai(player_tiles: &mut PlayerTiles, players: &mut Vec<Player>) {
             player.next_wind();
         }
     }
+}
+
+fn scoring_tsumo(
+    player_tiles: &mut PlayerTiles,
+    players: &mut Vec<Player>,
+    winning_player_index: usize,
+) {
+    let is_dealer_win = match players[winning_player_index].seat_wind == SeatWind::East {
+        true => true,
+        false => false,
+    };
+
+    let (base_score, dealer_score) = calculate_hand_score(&player_tiles.hand[winning_player_index]);
+
+    for i in 0..=3 {
+        if i == winning_player_index {
+            match is_dealer_win {
+                true => players[i].points += dealer_score * 3,
+                false => players[i].points += dealer_score + base_score * 2,
+            }
+        } else if is_dealer_win || players[i].seat_wind == SeatWind::East {
+            players[i].points -= dealer_score;
+        } else {
+            players[i].points -= base_score;
+        }
+    }
+
+    if !is_dealer_win {
+        for player in players {
+            player.next_wind();
+        }
+    }
+}
+
+fn calculate_hand_score(hand: &[MahjongTile]) -> (i32, i32) {
+    // TODO: Implement proper hand scoring calculation
+    (1000, 2000)
 }
 
 #[test]
