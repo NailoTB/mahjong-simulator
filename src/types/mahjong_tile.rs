@@ -739,8 +739,6 @@ fn test_super_tenpai_sanmen() {
 #[test]
 #[rustfmt::skip]
 fn test_super_tenpai_happoubijin() {
-    let start_time = Instant::now();
-
     let mut hand = vec![
         MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
@@ -774,7 +772,6 @@ fn test_super_tenpai_happoubijin() {
     print_hand(&waits2);
     assert_eq!(waits2, expected_output);
     assert_eq!(tenpai1, true);
-    println!("Test took {:.2?} to execute", start_time.elapsed());
 
 }
 #[test]
