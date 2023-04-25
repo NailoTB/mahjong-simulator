@@ -329,7 +329,7 @@ pub fn is_complete(hand: &[MahjongTile]) -> bool {
 
     let (melds, mut pairs) = find_pairs_melds(&first_copy);
 
-    if melds.is_empty() {
+    if melds.len() < 2 { //gotta be careful, since ryanpeikou has the same shape
         let mut second_copy = first_copy.to_vec();
         for pair in &pairs {
             for tile in pair {
@@ -436,15 +436,19 @@ pub fn construct_unique_meld_set(hand: &[MahjongTile]) -> Vec<Vec<MahjongTile>> 
 
     cleaned_tensor.sort();
     cleaned_tensor.dedup();
-    if cleaned_tensor.len() != 1 {
-        println!("Omg you found a rare hand!!");
-        println!("Printing meldtensor:");
-        for meldlist in &cleaned_tensor {
-            println!("Melds:");
-            for meld in meldlist {
-                print_hand(&meld);
-            }
-        }
+    // if cleaned_tensor.len() != 1 {
+    //     println!("Omg you found a rare hand!!");
+    //     println!("Printing meldtensor:");
+    //     for meldlist in &cleaned_tensor {
+    //         println!("Melds:");
+    //         for meld in meldlist {
+    //             print_hand(&meld);
+    //         }
+    //     }
+    // }
+    if cleaned_tensor.len() == 0 {
+        println!("Wtf there is no hand");
+        print_hand(&hand);
     }
     return cleaned_tensor[0].clone();
 }
@@ -854,8 +858,8 @@ fn chiitoi_completion() {
         MahjongTile { suit: Suit::Souzu, value: 2, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 3, is_dora: false },
-        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
-        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 4, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },
         MahjongTile { suit: Suit::Souzu, value: 8, is_dora: false },
         MahjongTile { suit: Suit::Pinzu, value: 9, is_dora: false },   

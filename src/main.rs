@@ -156,7 +156,6 @@ fn main() {
                 - 100000, // Should be 0
         );
     }
-
     println!("Program took {:.2?} to execute", start_time.elapsed());
 }
 
@@ -366,6 +365,18 @@ fn calculate_hand_score(
     let mut fu_score = 20;
 
     let hand_copy = hand.to_vec();
+    let (melds, _) = find_pairs_melds(&hand_copy);
+
+    for tile in &hand_copy {
+        if tile.is_dora {
+            han_score += 1; //Doras
+        }
+    }
+
+    if melds.len() < 2 {
+        return 25 * pow(2, 2 + 2 + 1 + han_score); //chiitoi temp fix
+    }
+
     let meld_list = construct_unique_meld_set(&hand_copy);
 
     let winning_tile = &hand_copy[hand_copy.len() - 1];
@@ -426,11 +437,7 @@ fn calculate_hand_score(
         han_score += 1; //Tsumo
         fu_score += 2; 
     }
-    for tile in &hand_copy {
-        if tile.is_dora {
-            han_score += 1; //Doras
-        }
-    }
+
     fu_score = round_up_to_10(fu_score);
     let base_score = fu_score * pow(2, 2 + han_score);
     base_score
