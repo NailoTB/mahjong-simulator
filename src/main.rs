@@ -1,8 +1,8 @@
 use std::time::Instant;
 mod types;
+use num_traits::pow;
 use types::mahjong_tile::*;
 use types::*;
-use num_traits::pow;
 const ROUNDS: u8 = 4 * 2;
 const GAMES: usize = 10;
 
@@ -339,11 +339,14 @@ fn scoring_tsumo(
     for (index, player) in players.iter_mut().enumerate().take(3 + 1) {
         if index == winning_player_index {
             match is_dealer_win {
-                true => player.points  += 3*round_up_to_100(2*base_points),
-                false => player.points += round_up_to_100(2*base_points) + 2*round_up_to_100(base_points),
+                true => player.points += 3 * round_up_to_100(2 * base_points),
+                false => {
+                    player.points +=
+                        round_up_to_100(2 * base_points) + 2 * round_up_to_100(base_points)
+                }
             }
         } else if is_dealer_win || player.seat_wind == SeatWind::East {
-            player.points -= round_up_to_100(2*base_points);
+            player.points -= round_up_to_100(2 * base_points);
         } else {
             player.points -= round_up_to_100(base_points);
         }
@@ -356,11 +359,7 @@ fn scoring_tsumo(
     }
 }
 
-fn calculate_hand_score(
-    hand: &[MahjongTile],
-    open_hand: &[MahjongTile],
-    tsumo: bool,
-) -> i32 {
+fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: bool) -> i32 {
     let mut han_score = 0;
     let mut fu_score = 20;
 
@@ -387,7 +386,7 @@ fn calculate_hand_score(
     for meld in &meld_list {
         let is_triplet = meld[1].value - meld[0].value == 0;
         let is_straight = meld[1].value - meld[0].value == 1;
-        if meld.len() == 2 && meld[0].suit == Suit::Sangen{
+        if meld.len() == 2 && meld[0].suit == Suit::Sangen {
             //also check if kaze is round or seat
             fu_score += 2;
         }
@@ -435,12 +434,11 @@ fn calculate_hand_score(
     }
     if tsumo && fu_score != 20 {
         han_score += 1; //Tsumo
-        fu_score += 2; 
+        fu_score += 2;
     }
 
     fu_score = round_up_to_10(fu_score);
-    let base_score = fu_score * pow(2, 2 + han_score);
-    base_score
+    fu_score * pow(2, 2 + han_score)
 }
 
 fn round_up_to_100(number: i32) -> i32 {

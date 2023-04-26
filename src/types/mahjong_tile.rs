@@ -329,7 +329,8 @@ pub fn is_complete(hand: &[MahjongTile]) -> bool {
 
     let (melds, mut pairs) = find_pairs_melds(&first_copy);
 
-    if melds.len() < 2 { //gotta be careful, since ryanpeikou has the same shape
+    if melds.len() < 2 {
+        //gotta be careful, since ryanpeikou has the same shape
         let mut second_copy = first_copy.to_vec();
         for pair in &pairs {
             for tile in pair {
@@ -446,11 +447,11 @@ pub fn construct_unique_meld_set(hand: &[MahjongTile]) -> Vec<Vec<MahjongTile>> 
     //         }
     //     }
     // }
-    if cleaned_tensor.len() == 0 {
+    if cleaned_tensor.is_empty() {
         println!("Wtf there is no hand");
-        print_hand(&hand);
+        print_hand(hand);
     }
-    return cleaned_tensor[0].clone();
+    cleaned_tensor[0].clone()
 }
 
 pub fn remove_pon_tiles(deck: &mut Vec<MahjongTile>, card_to_remove: &MahjongTile) {
