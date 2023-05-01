@@ -1,10 +1,12 @@
 use std::time::Instant;
+use core::cmp::Reverse;
 mod types;
 use num_traits::pow;
 use types::mahjong_tile::*;
 use types::*;
 const ROUNDS: u8 = 4 * 2;
-const GAMES: usize = 10;
+const GAMES: usize = 1;
+const UMA: bool = true;
 
 fn main() {
     let start_time = Instant::now();
@@ -134,28 +136,46 @@ fn main() {
                 current_player_index = next_player_index;
             }
         }
+
+        let mut uma_vector = vec![0; 4];
+        if UMA {
+            let mut sorted_players = players.to_vec();
+            sorted_players.sort_by_key(|p| Reverse(p.points));
+    
+            for (i, p) in sorted_players.iter().enumerate() {
+                let rank = i as i32 + 1;
+                let uma_points:i32 = 15000 - 10000 * (rank - 1);
+            
+                let id = players.iter().position(|x| x == p).unwrap();
+                uma_vector[id] = uma_points;
+            }
+        }
+
         let game_result = GameResult {
-            player_1_score: players[0].points,
-            player_2_score: players[1].points,
-            player_3_score: players[2].points,
-            player_4_score: players[3].points,
+            player_1_score: players[0].points + uma_vector[0],
+            player_2_score: players[1].points + uma_vector[1],
+            player_3_score: players[2].points + uma_vector[2],
+            player_4_score: players[3].points + uma_vector[3],
         };
         game_results.push(game_result);
     }
+    let mut player_1_cum_diff = 0;
+    let mut player_2_cum_diff = 0;
+    let mut player_3_cum_diff = 0;
+    let mut player_4_cum_diff = 0;
+
     for game_result in &game_results {
-        println!(
-            "Player 1: {}, Player 2: {}, Player 3: {}, Player 4: {}, Total points deviation: {}",
-            game_result.player_1_score,
-            game_result.player_2_score,
-            game_result.player_3_score,
-            game_result.player_4_score,
-            game_result.player_1_score
-                + game_result.player_2_score
-                + game_result.player_3_score
-                + game_result.player_4_score
-                - 100000, // Should be 0
-        );
+        player_1_cum_diff += game_result.player_1_score - 25000;
+        player_2_cum_diff += game_result.player_2_score - 25000;
+        player_3_cum_diff += game_result.player_3_score - 25000;
+        player_4_cum_diff += game_result.player_4_score - 25000;
     }
+    println!(
+            "Player 1: {}, Player 2: {}, Player 3: {}, Player 4: {}",
+            player_1_cum_diff as f64 / GAMES as f64 ,
+            player_2_cum_diff as f64 / GAMES as f64 ,
+            player_3_cum_diff as f64 / GAMES as f64 ,
+            player_4_cum_diff as f64 / GAMES as f64 );
     println!("Program took {:.2?} to execute", start_time.elapsed());
 }
 
@@ -174,21 +194,25 @@ fn initialize_players() -> Vec<Player> {
     };
     let a = Player {
         strategy: standard.clone(),
+        id: 1,
         ..Default::default()
     };
     let b = Player {
         seat_wind: SeatWind::South,
         strategy: pinfu,
+        id: 2,
         ..Default::default()
     };
     let c = Player {
         seat_wind: SeatWind::West,
         strategy: standard.clone(),
+        id: 3,
         ..Default::default()
     };
     let d = Player {
         seat_wind: SeatWind::North,
         strategy: standard,
+        id: 4,
         ..Default::default()
     };
 
@@ -243,7 +267,8 @@ fn standard_discarder(strat: StrategyInput) -> usize {
     own_hand.sort();
     let partial_hand = get_partial_completion(&own_hand);
     if partial_hand.is_empty() {
-        //println!("Partial hand is empty, hand was complete!");
+        println!("Partial hand is empty, hand was complete!");
+        print_hand(&own_hand);
         return 13;
     }
     find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1])

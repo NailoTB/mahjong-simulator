@@ -301,10 +301,13 @@ pub fn get_partial_completion(hand: &[MahjongTile]) -> Vec<MahjongTile> {
 
         for start_index in 0..n_melds {
             let mut third_copy = second_copy.to_vec();
+            let mut pair_counter = 0;
 
             for meld_index in 0..n_melds {
                 let meld2 = &pairs[(start_index + meld_index) % n_melds];
-
+                if meld2.len() == 2{
+                    pair_counter += 1;
+                }
                 if is_subset(&third_copy, meld2) {
                     for tile in meld2 {
                         if let Some(tilepos) = third_copy.iter().position(|x| x == tile) {
@@ -315,7 +318,7 @@ pub fn get_partial_completion(hand: &[MahjongTile]) -> Vec<MahjongTile> {
                     continue;
                 }
             }
-            if third_copy.len() < partial_hand.len() {
+            if third_copy.len() < partial_hand.len() && pair_counter <= 2 {
                 partial_hand = third_copy;
             }
         }

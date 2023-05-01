@@ -14,6 +14,7 @@ pub struct Player {
     pub points: i32,
     pub seat_wind: SeatWind,
     pub strategy: Strategy,
+    pub id: i32,
 }
 
 impl Default for Player {
@@ -22,10 +23,15 @@ impl Default for Player {
             points: 25000,
             seat_wind: SeatWind::East,
             strategy: Strategy::default(),
+            id: 0,
         }
     }
 }
-
+impl PartialEq for Player {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
 impl Player {
     pub fn next_wind(&mut self) {
         self.seat_wind = match self.seat_wind {
