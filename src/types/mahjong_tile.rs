@@ -968,3 +968,33 @@ fn test_hand_construction() {
         ];
 
 }
+
+#[test]
+#[rustfmt::skip]
+fn test_hand_iipeikou_const() {
+    let mut hand = vec![
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 4, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Pinzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 2, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 3, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 4, is_dora: false },   
+        MahjongTile { suit: Suit::Souzu, value: 5, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 6, is_dora: false },
+        MahjongTile { suit: Suit::Souzu, value: 7, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
+        MahjongTile { suit: Suit::Manzu, value: 9, is_dora: false },
+    ];
+    print_hand(&hand);
+    hand.sort();
+
+    let hand_melds = construct_unique_meld_set(&hand);
+    for meld in hand_melds {
+        print_hand(&meld);
+}
+
+
+}

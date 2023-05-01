@@ -334,6 +334,7 @@ fn scoring_tsumo(
         &player_tiles.hand[winning_player_index],
         &player_tiles.open_hand[winning_player_index],
         true,
+        &players[winning_player_index].seat_wind,
     );
 
     for (index, player) in players.iter_mut().enumerate().take(3 + 1) {
@@ -342,13 +343,14 @@ fn scoring_tsumo(
                 true => player.points += 3 * round_up_to_100(2 * base_points),
                 false => {
                     player.points +=
-                        round_up_to_100(2 * base_points) + 2 * round_up_to_100(base_points)
+                        round_up_to_100(2 * base_points) + 2 * round_up_to_100(base_points);
                 }
             }
         } else if is_dealer_win || player.seat_wind == SeatWind::East {
             player.points -= round_up_to_100(2 * base_points);
         } else {
             player.points -= round_up_to_100(base_points);
+
         }
     }
 
@@ -359,12 +361,22 @@ fn scoring_tsumo(
     }
 }
 
-fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: bool) -> i32 {
-    let mut han_score = 0;
-    let mut fu_score = 20;
+fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: bool, seat_wind: &SeatWind) -> i32 {
 
     let hand_copy = hand.to_vec();
     let (melds, _) = find_pairs_melds(&hand_copy);
+
+    let mut han_score = 0;
+    let mut fu_score;
+
+    if open_hand.is_empty() && tsumo{
+        han_score += 1;
+        fu_score = 20;
+    }else if open_hand.is_empty() && !tsumo{
+        fu_score = 30;
+    } else {
+        fu_score = 20;
+    }
 
     for tile in &hand_copy {
         if tile.is_dora {
@@ -373,7 +385,18 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
     }
 
     if melds.len() < 2 {
-        return 25 * pow(2, 2 + 2 + 1 + han_score); //chiitoi temp fix
+        //chiitoi temp fix
+        let hand_score = 25 * pow(2, 2 + 2 + han_score);
+        if hand_score > 2000 {
+            return match han_score {
+                0..=5 => 2000,
+                6..=7 => 3000,
+                8..=10 => 4000,
+                11..=12 => 6000,
+                _ => 8000, // 13 or greater, not in EMA
+            };
+        }
+        return hand_score;
     }
 
     let meld_list = construct_unique_meld_set(&hand_copy);
@@ -383,12 +406,24 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
     let mut twopoint_wait_fu = false;
     let mut zeropoint_wait_fu = false;
 
+    let seat_wind_number = match seat_wind {
+        SeatWind::East => 1,
+        SeatWind::South => 2,
+        SeatWind::West => 3,
+        SeatWind::North => 4,
+    };
+    let mut triplet_count = 0;
     for meld in &meld_list {
-        let is_triplet = meld[1].value - meld[0].value == 0;
-        let is_straight = meld[1].value - meld[0].value == 1;
-        if meld.len() == 2 && meld[0].suit == Suit::Sangen {
-            //also check if kaze is round or seat
+        let mut is_triplet = false;
+        let mut is_straight= false;
+        if meld.len() == 3{
+            is_triplet = meld[1].value - meld[0].value == 0;
+            is_straight = meld[1].value - meld[0].value == 1;
+        }
+
+        if meld.len() == 2 && (meld[0].suit == Suit::Sangen || (meld[0].suit == Suit::Kaze && meld[0].value == seat_wind_number )) {
             fu_score += 2;
+            //Add round wind
         }
         if meld.contains(winning_tile) {
             if meld.len() == 2 {
@@ -407,8 +442,10 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
                 }
             }
         }
-        // this construction only works for tsumo
+
+        //open hand needs different method
         if is_triplet {
+            triplet_count += 1;
             let triplet_suit = meld[0].suit;
             let triplet_value = meld[0].value;
 
@@ -421,24 +458,51 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
             } else {
                 fu_score += 4;
             }
-            if triplet_suit == Suit::Sangen {
-                //Add kaze seat and round score
+            if triplet_suit == Suit::Sangen || (triplet_suit == Suit::Kaze && triplet_value == seat_wind_number ) {
+                //Add round wind
                 han_score += 1;
             }
         }
     }
+    if triplet_count >= 3 {
+        han_score += 2; //san ankou and temp suuankou
+    }
+    if open_hand.is_empty(){
+        for i in 0..meld_list.len() {
+            for j in i+1..meld_list.len() {
+                if meld_list[i] == meld_list[j] {
+                    han_score += 1; //Iipeikou
+                    break;                
+                }
+            }
+        }
+    }
+
+    let mut is_pinfu = false;
+
     if zeropoint_wait_fu && fu_score == 20 {
         han_score += 1; //Pinfu
+        is_pinfu = true;
     } else if twopoint_wait_fu {
         fu_score += 2; //from wait
     }
-    if tsumo && fu_score != 20 {
-        han_score += 1; //Tsumo
+
+    if !is_pinfu && tsumo {
         fu_score += 2;
     }
 
     fu_score = round_up_to_10(fu_score);
-    fu_score * pow(2, 2 + han_score)
+    let hand_score = fu_score * pow(2, 2 + han_score);
+    if hand_score > 2000 {
+        return match han_score {
+            0..=5 => 2000,
+            6..=7 => 3000,
+            8..=10 => 4000,
+            11..=12 => 6000,
+            _ => 8000, // 13 or greater, not in EMA
+        };
+    }
+    hand_score
 }
 
 fn round_up_to_100(number: i32) -> i32 {
