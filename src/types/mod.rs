@@ -14,7 +14,7 @@ pub struct Player {
     pub points: i32,
     pub seat_wind: SeatWind,
     pub strategy: Strategy,
-    pub id: i32,
+    pub id: usize,
 }
 
 impl Default for Player {

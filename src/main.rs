@@ -1,11 +1,14 @@
-use std::time::Instant;
 use core::cmp::Reverse;
+use std::time::Instant;
+use std::collections::HashMap;
 mod types;
 use num_traits::pow;
+use std::fs::File;
+use std::io::{BufWriter, Result, Write};
 use types::mahjong_tile::*;
 use types::*;
 const ROUNDS: u8 = 4 * 2;
-const GAMES: usize = 1;
+const GAMES: usize = 10000;
 const UMA: bool = true;
 
 fn main() {
@@ -141,13 +144,31 @@ fn main() {
         if UMA {
             let mut sorted_players = players.to_vec();
             sorted_players.sort_by_key(|p| Reverse(p.points));
-    
+
+            let mut tied_players: HashMap<i32, Vec<usize>> = HashMap::new();
+
             for (i, p) in sorted_players.iter().enumerate() {
                 let rank = i as i32 + 1;
                 let uma_points:i32 = 15000 - 10000 * (rank - 1);
-            
-                let id = players.iter().position(|x| x == p).unwrap();
-                uma_vector[id] = uma_points;
+                uma_vector[p.id - 1] = uma_points;
+
+                let ids = tied_players.entry(p.points).or_insert(Vec::new());
+                ids.push(p.id);
+            }
+        
+            let result: Vec<Vec<usize>> = tied_players.values().cloned().collect();
+            for res_vec in &result {
+                if res_vec.len() == 1 {
+                    continue;
+                }
+                let mut uma_sum = 0;
+                for tied_player_id in res_vec{
+                    uma_sum += &uma_vector[*tied_player_id - 1];
+                }
+                uma_sum = uma_sum / res_vec.len() as i32;
+                for tied_player_id in res_vec{
+                    uma_vector[*tied_player_id - 1] = uma_sum;
+                }
             }
         }
 
@@ -159,23 +180,9 @@ fn main() {
         };
         game_results.push(game_result);
     }
-    let mut player_1_cum_diff = 0;
-    let mut player_2_cum_diff = 0;
-    let mut player_3_cum_diff = 0;
-    let mut player_4_cum_diff = 0;
 
-    for game_result in &game_results {
-        player_1_cum_diff += game_result.player_1_score - 25000;
-        player_2_cum_diff += game_result.player_2_score - 25000;
-        player_3_cum_diff += game_result.player_3_score - 25000;
-        player_4_cum_diff += game_result.player_4_score - 25000;
-    }
-    println!(
-            "Player 1: {}, Player 2: {}, Player 3: {}, Player 4: {}",
-            player_1_cum_diff as f64 / GAMES as f64 ,
-            player_2_cum_diff as f64 / GAMES as f64 ,
-            player_3_cum_diff as f64 / GAMES as f64 ,
-            player_4_cum_diff as f64 / GAMES as f64 );
+    write_gameresults("10000_games.dat", &game_results);
+
     println!("Program took {:.2?} to execute", start_time.elapsed());
 }
 
@@ -193,25 +200,25 @@ fn initialize_players() -> Vec<Player> {
         ..Default::default()
     };
     let a = Player {
-        strategy: standard.clone(),
+        strategy: pinfu.clone(),
         id: 1,
         ..Default::default()
     };
     let b = Player {
         seat_wind: SeatWind::South,
-        strategy: pinfu,
+        strategy: standard.clone(),
         id: 2,
         ..Default::default()
     };
     let c = Player {
         seat_wind: SeatWind::West,
-        strategy: standard.clone(),
+        strategy: pinfu.clone(),
         id: 3,
         ..Default::default()
     };
     let d = Player {
         seat_wind: SeatWind::North,
-        strategy: standard,
+        strategy: standard.clone(),
         id: 4,
         ..Default::default()
     };
@@ -262,6 +269,7 @@ fn pinfu_hunter(strat: StrategyInput) -> usize {
     }
     find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1])
 }
+
 fn standard_discarder(strat: StrategyInput) -> usize {
     let mut own_hand = strat.hand.clone();
     own_hand.sort();
@@ -375,7 +383,6 @@ fn scoring_tsumo(
             player.points -= round_up_to_100(2 * base_points);
         } else {
             player.points -= round_up_to_100(base_points);
-
         }
     }
 
@@ -386,18 +393,22 @@ fn scoring_tsumo(
     }
 }
 
-fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: bool, seat_wind: &SeatWind) -> i32 {
-
+fn calculate_hand_score(
+    hand: &[MahjongTile],
+    open_hand: &[MahjongTile],
+    tsumo: bool,
+    seat_wind: &SeatWind,
+) -> i32 {
     let hand_copy = hand.to_vec();
     let (melds, _) = find_pairs_melds(&hand_copy);
 
     let mut han_score = 0;
     let mut fu_score;
 
-    if open_hand.is_empty() && tsumo{
+    if open_hand.is_empty() && tsumo {
         han_score += 1;
         fu_score = 20;
-    }else if open_hand.is_empty() && !tsumo{
+    } else if open_hand.is_empty() && !tsumo {
         fu_score = 30;
     } else {
         fu_score = 20;
@@ -440,13 +451,16 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
     let mut triplet_count = 0;
     for meld in &meld_list {
         let mut is_triplet = false;
-        let mut is_straight= false;
-        if meld.len() == 3{
+        let mut is_straight = false;
+        if meld.len() == 3 {
             is_triplet = meld[1].value - meld[0].value == 0;
             is_straight = meld[1].value - meld[0].value == 1;
         }
 
-        if meld.len() == 2 && (meld[0].suit == Suit::Sangen || (meld[0].suit == Suit::Kaze && meld[0].value == seat_wind_number )) {
+        if meld.len() == 2
+            && (meld[0].suit == Suit::Sangen
+                || (meld[0].suit == Suit::Kaze && meld[0].value == seat_wind_number))
+        {
             fu_score += 2;
             //Add round wind
         }
@@ -483,7 +497,9 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
             } else {
                 fu_score += 4;
             }
-            if triplet_suit == Suit::Sangen || (triplet_suit == Suit::Kaze && triplet_value == seat_wind_number ) {
+            if triplet_suit == Suit::Sangen
+                || (triplet_suit == Suit::Kaze && triplet_value == seat_wind_number)
+            {
                 //Add round wind
                 han_score += 1;
             }
@@ -492,12 +508,12 @@ fn calculate_hand_score(hand: &[MahjongTile], open_hand: &[MahjongTile], tsumo: 
     if triplet_count >= 3 {
         han_score += 2; //san ankou and temp suuankou
     }
-    if open_hand.is_empty(){
+    if open_hand.is_empty() {
         for i in 0..meld_list.len() {
-            for j in i+1..meld_list.len() {
+            for j in i + 1..meld_list.len() {
                 if meld_list[i] == meld_list[j] {
                     han_score += 1; //Iipeikou
-                    break;                
+                    break;
                 }
             }
         }
@@ -535,4 +551,19 @@ fn round_up_to_100(number: i32) -> i32 {
 }
 fn round_up_to_10(number: i32) -> i32 {
     (number + 9) / 10 * 10
+}
+
+fn write_gameresults(filename: &str, gameresults: &Vec<GameResult>) -> Result<()> {
+    let file = File::create(filename)?;
+    let mut writer = BufWriter::new(file);
+    for game in gameresults {
+        write!(
+            &mut writer,
+            "{}, {}, {}, {}\n",
+            game.player_1_score, game.player_2_score, game.player_3_score, game.player_4_score
+        )?;
+    }
+    writer.flush()?;
+
+    Ok(())
 }
