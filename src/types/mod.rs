@@ -118,6 +118,8 @@ fn default_boolean_strategy(_strategy_input: StrategyInput) -> bool {
 pub struct StrategyInput {
     pub hand: Vec<MahjongTile>,
     pub discards: Vec<Vec<MahjongTile>>,
+    pub seat_wind: SeatWind,
+    pub round_number: u8,
 }
 
 #[derive(Debug, Clone)]

@@ -8,7 +8,7 @@ use std::io::{BufWriter, Result, Write};
 use types::mahjong_tile::*;
 use types::*;
 const ROUNDS: u8 = 4 * 2;
-const GAMES: usize = 10000;
+const GAMES: usize = 1000;
 const UMA: bool = true;
 
 fn main() {
@@ -78,6 +78,8 @@ fn main() {
                 let strategy_input = StrategyInput {
                     hand: player_tiles.hand[current_player_index].clone(),
                     discards: player_tiles.discards.clone(),
+                    seat_wind: players[current_player_index].seat_wind.clone(),
+                    round_number: round,
                 };
 
                 // Current player may tsumo
@@ -181,18 +183,19 @@ fn main() {
         game_results.push(game_result);
     }
 
-    write_gameresults("10000_games.dat", &game_results);
+    write_gameresults("1000_games.dat", &game_results);
 
     println!("Program took {:.2?} to execute", start_time.elapsed());
 }
 
 fn initialize_players() -> Vec<Player> {
-    let pinfu = Strategy {
-        discard: pinfu_hunter,
+    let completor = Strategy {
+        discard: completor,
         call_chi: never_open_hand,
         call_pon: never_open_hand,
         ..Default::default()
     };
+
     let standard = Strategy {
         discard: standard_discarder,
         call_chi: never_open_hand,
@@ -200,19 +203,19 @@ fn initialize_players() -> Vec<Player> {
         ..Default::default()
     };
     let a = Player {
-        strategy: pinfu.clone(),
+        strategy: completor.clone(),
         id: 1,
         ..Default::default()
     };
     let b = Player {
         seat_wind: SeatWind::South,
-        strategy: standard.clone(),
+        strategy: completor.clone(),
         id: 2,
         ..Default::default()
     };
     let c = Player {
         seat_wind: SeatWind::West,
-        strategy: pinfu.clone(),
+        strategy: standard.clone(),
         id: 3,
         ..Default::default()
     };
@@ -230,7 +233,7 @@ fn never_open_hand(_strat: StrategyInput) -> bool {
     false
 }
 
-fn pinfu_hunter(strat: StrategyInput) -> usize {
+fn completor(strat: StrategyInput) -> usize {
     let mut own_hand = strat.hand.clone();
     own_hand.sort();
     let partial_hand = get_partial_completion(&own_hand);
@@ -413,12 +416,32 @@ fn calculate_hand_score(
     } else {
         fu_score = 20;
     }
+    let mut tanyao = true;
+    let mut honitsu = true;
+    let mut chinitsu = true;
+    
+    let hand_suit = hand_copy[0].suit;
+    if hand_suit == Suit::Kaze || hand_suit == Suit::Sangen {
+        println!("Yakuman I guess:");
+        print_hand(&hand_copy);
+    }
 
     for tile in &hand_copy {
-        if tile.is_dora {
-            han_score += 1; //Doras
+        han_score += if tile.is_dora { 1 } else { 0 };
+
+        if tile.value == 1 || tile.value == 9 || tile.suit == Suit::Kaze || tile.suit == Suit::Sangen {
+            tanyao = false;
+        }
+        if tile.suit != hand_suit {
+            chinitsu = false;
+            if tile.suit != Suit::Kaze || tile.suit != Suit::Sangen{
+                honitsu = false;
+            }
         }
     }
+    han_score += if tanyao { 1 } else { 0 };
+    han_score += if honitsu { 3 } else { 0 };
+    han_score += if chinitsu { 6 } else { 0 };
 
     if melds.len() < 2 {
         //chiitoi temp fix
@@ -441,6 +464,14 @@ fn calculate_hand_score(
 
     let mut twopoint_wait_fu = false;
     let mut zeropoint_wait_fu = false;
+
+    // let round_wind_number = match strat.round_number {
+    //     1..=4 => 1,
+    //     5..=8 => 2,
+    //     9..=12 => 3,
+    //     13..=16 => 4,
+    //     _ => 0,
+    // };
 
     let seat_wind_number = match seat_wind {
         SeatWind::East => 1,

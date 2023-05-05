@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Load data from CSV file
-data = np.genfromtxt('10000_games.dat', delimiter=',')
+data = np.genfromtxt('1000_games.dat', delimiter=',')
 plt.rcParams['text.usetex'] = True
 
 # Plot histograms for each player
@@ -17,5 +17,5 @@ ax.set_ylabel(r'Density')
 
 ax.legend()
 ax.grid()
-fig.savefig("point_distribution.png", dpi = 200, bbox_inches='tight')
+fig.savefig("point_distribution_1000.png", dpi = 200, bbox_inches='tight')
 plt.close(fig)
