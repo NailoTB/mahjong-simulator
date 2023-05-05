@@ -10,7 +10,7 @@ use types::*;
 const ROUNDS: u8 = 4 * 2;
 const GAMES: usize = 1000;
 const UMA: bool = true;
-
+const TOBI: bool = false;
 fn main() {
     let start_time = Instant::now();
     let mut game_results: Vec<GameResult> = Vec::new();
@@ -20,7 +20,7 @@ fn main() {
         let mut round = 0;
         'rounds: while round < ROUNDS {
             for player in players.iter().take(3 + 1) {
-                if player.points < 0 {
+                if player.points < 0 && TOBI {
                     break 'rounds;
                 }
             }
@@ -195,7 +195,12 @@ fn initialize_players() -> Vec<Player> {
         call_pon: never_open_hand,
         ..Default::default()
     };
-
+    let kanc_completor = Strategy {
+        discard: kanchan_completor,
+        call_chi: never_open_hand,
+        call_pon: never_open_hand,
+        ..Default::default()
+    };
     let standard = Strategy {
         discard: standard_discarder,
         call_chi: never_open_hand,
@@ -215,7 +220,7 @@ fn initialize_players() -> Vec<Player> {
     };
     let c = Player {
         seat_wind: SeatWind::West,
-        strategy: standard.clone(),
+        strategy: kanc_completor.clone(),
         id: 3,
         ..Default::default()
     };
@@ -261,6 +266,46 @@ fn completor(strat: StrategyInput) -> usize {
         if tile.value + 1 == right.value && tile.suit == right.suit {
             //keep the tile and the next tile
             skip_following = true;
+            continue;
+        }
+        return find_tile_in_hand(&strat.hand, tile);
+    }
+    for tile in &partial_hand {
+        if tile.value == 1 || tile.value == 9 {
+            return find_tile_in_hand(&strat.hand, tile);
+        }
+    }
+    find_tile_in_hand(&strat.hand, &partial_hand[partial_hand.len() - 1])
+}
+
+fn kanchan_completor(strat: StrategyInput) -> usize {
+    let mut own_hand = strat.hand.clone();
+    own_hand.sort();
+    let partial_hand = get_partial_completion(&own_hand);
+    if partial_hand.is_empty() {
+        //println!("Partial hand is empty, hand was complete!");
+        return 13;
+    }
+    if partial_hand.len() == 1 {
+        return find_tile_in_hand(&strat.hand, &partial_hand[0]);
+    }
+
+    for tile in &partial_hand {
+        if tile.suit == Suit::Sangen || tile.suit == Suit::Kaze {
+            return find_tile_in_hand(&strat.hand, tile);
+        }
+    }
+    let mut skip_following = false;
+    for tile_index in 0..partial_hand.len() - 1 {
+        let tile = &partial_hand[tile_index];
+        let right = &partial_hand[tile_index + 1];
+
+        if (tile.value + 1 == right.value || tile.value + 2 == right.value) && tile.suit == right.suit{
+            //keep the tile and the next tile
+            skip_following = true;
+            continue;
+        } else if skip_following {
+            skip_following = false;
             continue;
         }
         return find_tile_in_hand(&strat.hand, tile);
