@@ -1,6 +1,7 @@
 use core::cmp::Reverse;
-use std::time::Instant;
+use rayon::prelude::*;
 use std::collections::HashMap;
+use std::time::Instant;
 mod types;
 use num_traits::pow;
 use std::fs::File;
@@ -13,179 +14,193 @@ const UMA: bool = true;
 const TOBI: bool = false;
 fn main() {
     let start_time = Instant::now();
-    let mut game_results: Vec<GameResult> = Vec::new();
+    /*let mut game_results: Vec<GameResult> = Vec::new();
     for game in 1..=GAMES {
-        let mut players = initialize_players();
 
-        let mut round = 0;
-        'rounds: while round < ROUNDS {
-            for player in players.iter().take(3 + 1) {
-                if player.points < 0 && TOBI {
-                    break 'rounds;
-                }
-            }
-            let mut player_tiles = PlayerTiles::default();
+        let game_result = simulate_game();
 
-            let (mut wall, wall_dead, dora_indicators) = initialize_wall();
-
-            (
-                wall,
-                player_tiles.hand[0],
-                player_tiles.hand[1],
-                player_tiles.hand[2],
-                player_tiles.hand[3],
-            ) = draw_hands(wall);
-
-            let mut board_tiles = BoardTiles {
-                wall,
-                wall_dead,
-                dora_indicators,
-                dora_index: 0,
-            };
-
-            flip_dora_indicator(&mut board_tiles, &mut player_tiles);
-
-            for i in 0..=3 {
-                player_tiles.hand[i].sort();
-            }
-
-            let mut round_ongoing = true;
-            let mut skip_draw = false;
-            let mut skip_chi = false;
-            let mut current_player_index: usize = (round % 4).into();
-            'round: while round_ongoing {
-                let next_player_index = (current_player_index + 1) % 4;
-                // Current player draws a tile
-                player_tiles.hand[current_player_index].sort();
-
-                if skip_draw {
-                    skip_draw = false;
-                } else if board_tiles.wall.is_empty() {
-                    let player_1_wind = players[0].seat_wind.clone();
-                    scoring_tenpai(&mut player_tiles, &mut players);
-                    if players[0].seat_wind != player_1_wind {
-                        round += 1;
-                    }
-                    round_ongoing = false;
-                    break 'round;
-                } else {
-                    draw_tile(
-                        &mut board_tiles.wall,
-                        &mut player_tiles.hand[current_player_index],
-                    );
-                }
-
-                let strategy_input = StrategyInput {
-                    hand: player_tiles.hand[current_player_index].clone(),
-                    discards: player_tiles.discards.clone(),
-                    seat_wind: players[current_player_index].seat_wind.clone(),
-                    round_number: round,
-                };
-
-                // Current player may tsumo
-                if is_complete(&player_tiles.hand[current_player_index])
-                    && (players[current_player_index].strategy.tsumo)(strategy_input.clone())
-                {
-                    scoring_tsumo(&mut player_tiles, &mut players, current_player_index);
-                    break 'round;
-                }
-                // Current player may kan
-                // Current player discards a tile
-                // Placeholder - Need to pass relevant vectors to strategies (hand, discards, dora indicator..)
-                //let strategy_input = true;
-
-                move_tile(
-                    &mut player_tiles.hand[current_player_index],
-                    &mut player_tiles.discards[current_player_index],
-                    (players[current_player_index].strategy.discard)(strategy_input.clone()),
-                );
-                let discarded = *player_tiles.discards[current_player_index].last().unwrap();
-
-                // Other players may ron
-                // Other players may pon
-                for i in 0..=3 {
-                    if i != current_player_index
-                        && can_pon(&player_tiles.hand[i], &discarded)
-                        && (players[current_player_index].strategy.call_pon)(strategy_input.clone())
-                    {
-                        //println!("some guy pon'd a {:?}", discarded);
-                        player_tiles.hand[i].sort();
-                        remove_pon_tiles(&mut player_tiles.hand[i], &discarded);
-                        for _ in 1..=3 {
-                            player_tiles.open_hand[i].push(discarded);
-                        }
-                        skip_chi = true;
-                        break;
-                    }
-                }
-
-                // Next player may chi
-                /* Need to change how this works -- strategy has to answer what straight to combine the stolen tile with so a boolean answer wont be enough
-                if !skip_chi
-                    && can_chi(&game_state.players[next_player_index].hand, &discarded)
-                    && (game_state.players[current_player_index].strategy.call_chi)(game_state.clone())
-                {
-                    draw_tile(
-                        &mut game_state.players[current_player_index].discards,
-                        &mut game_state.players[next_player_index].hand,
-                    );
-                    skip_draw = true;
-                    //change player's hand to open and move the chi'd set to a open section of the hand
-                };
-                */
-                skip_chi = false;
-                // Pass turn to the next player
-                //print_hand(&game_state.players[current_player_index].hand);
-                //print_hand(&game_state.players[current_player_index].open_hand);
-                //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
-                current_player_index = next_player_index;
-            }
-        }
-
-        let mut uma_vector = vec![0; 4];
-        if UMA {
-            let mut sorted_players = players.to_vec();
-            sorted_players.sort_by_key(|p| Reverse(p.points));
-
-            let mut tied_players: HashMap<i32, Vec<usize>> = HashMap::new();
-
-            for (i, p) in sorted_players.iter().enumerate() {
-                let rank = i as i32 + 1;
-                let uma_points:i32 = 15000 - 10000 * (rank - 1);
-                uma_vector[p.id - 1] = uma_points;
-
-                let ids = tied_players.entry(p.points).or_insert(Vec::new());
-                ids.push(p.id);
-            }
-        
-            let result: Vec<Vec<usize>> = tied_players.values().cloned().collect();
-            for res_vec in &result {
-                if res_vec.len() == 1 {
-                    continue;
-                }
-                let mut uma_sum = 0;
-                for tied_player_id in res_vec{
-                    uma_sum += &uma_vector[*tied_player_id - 1];
-                }
-                uma_sum = uma_sum / res_vec.len() as i32;
-                for tied_player_id in res_vec{
-                    uma_vector[*tied_player_id - 1] = uma_sum;
-                }
-            }
-        }
-
-        let game_result = GameResult {
-            player_1_score: players[0].points + uma_vector[0],
-            player_2_score: players[1].points + uma_vector[1],
-            player_3_score: players[2].points + uma_vector[2],
-            player_4_score: players[3].points + uma_vector[3],
-        };
         game_results.push(game_result);
-    }
+    }*/
+
+    let game_results: Vec<GameResult> = (0..=GAMES)
+        .into_iter()
+        .par_bridge()
+        .map(|_| simulate_game())
+        .collect();
 
     write_gameresults("1000_games.dat", &game_results);
 
     println!("Program took {:.2?} to execute", start_time.elapsed());
+}
+
+fn simulate_game() -> GameResult {
+    let mut players = initialize_players();
+
+    let mut round = 0;
+    'rounds: while round < ROUNDS {
+        for player in players.iter().take(3 + 1) {
+            if player.points < 0 && TOBI {
+                break 'rounds;
+            }
+        }
+        let mut player_tiles = PlayerTiles::default();
+
+        let (mut wall, wall_dead, dora_indicators) = initialize_wall();
+
+        (
+            wall,
+            player_tiles.hand[0],
+            player_tiles.hand[1],
+            player_tiles.hand[2],
+            player_tiles.hand[3],
+        ) = draw_hands(wall);
+
+        let mut board_tiles = BoardTiles {
+            wall,
+            wall_dead,
+            dora_indicators,
+            dora_index: 0,
+        };
+
+        flip_dora_indicator(&mut board_tiles, &mut player_tiles);
+
+        for i in 0..=3 {
+            player_tiles.hand[i].sort();
+        }
+
+        let mut round_ongoing = true;
+        let mut skip_draw = false;
+        let mut skip_chi = false;
+        let mut current_player_index: usize = (round % 4).into();
+        'round: while round_ongoing {
+            let next_player_index = (current_player_index + 1) % 4;
+            // Current player draws a tile
+            player_tiles.hand[current_player_index].sort();
+
+            if skip_draw {
+                skip_draw = false;
+            } else if board_tiles.wall.is_empty() {
+                let player_1_wind = players[0].seat_wind.clone();
+                scoring_tenpai(&mut player_tiles, &mut players);
+                if players[0].seat_wind != player_1_wind {
+                    round += 1;
+                }
+                round_ongoing = false;
+                break 'round;
+            } else {
+                draw_tile(
+                    &mut board_tiles.wall,
+                    &mut player_tiles.hand[current_player_index],
+                );
+            }
+
+            let strategy_input = StrategyInput {
+                hand: player_tiles.hand[current_player_index].clone(),
+                discards: player_tiles.discards.clone(),
+                seat_wind: players[current_player_index].seat_wind.clone(),
+                round_number: round,
+            };
+
+            // Current player may tsumo
+            if is_complete(&player_tiles.hand[current_player_index])
+                && (players[current_player_index].strategy.tsumo)(strategy_input.clone())
+            {
+                scoring_tsumo(&mut player_tiles, &mut players, current_player_index);
+                break 'round;
+            }
+            // Current player may kan
+            // Current player discards a tile
+            // Placeholder - Need to pass relevant vectors to strategies (hand, discards, dora indicator..)
+            //let strategy_input = true;
+
+            move_tile(
+                &mut player_tiles.hand[current_player_index],
+                &mut player_tiles.discards[current_player_index],
+                (players[current_player_index].strategy.discard)(strategy_input.clone()),
+            );
+            let discarded = *player_tiles.discards[current_player_index].last().unwrap();
+
+            // Other players may ron
+            // Other players may pon
+            for i in 0..=3 {
+                if i != current_player_index
+                    && can_pon(&player_tiles.hand[i], &discarded)
+                    && (players[current_player_index].strategy.call_pon)(strategy_input.clone())
+                {
+                    //println!("some guy pon'd a {:?}", discarded);
+                    player_tiles.hand[i].sort();
+                    remove_pon_tiles(&mut player_tiles.hand[i], &discarded);
+                    for _ in 1..=3 {
+                        player_tiles.open_hand[i].push(discarded);
+                    }
+                    skip_chi = true;
+                    break;
+                }
+            }
+
+            // Next player may chi
+            /* Need to change how this works -- strategy has to answer what straight to combine the stolen tile with so a boolean answer wont be enough
+            if !skip_chi
+                && can_chi(&game_state.players[next_player_index].hand, &discarded)
+                && (game_state.players[current_player_index].strategy.call_chi)(game_state.clone())
+            {
+                draw_tile(
+                    &mut game_state.players[current_player_index].discards,
+                    &mut game_state.players[next_player_index].hand,
+                );
+                skip_draw = true;
+                //change player's hand to open and move the chi'd set to a open section of the hand
+            };
+            */
+            skip_chi = false;
+            // Pass turn to the next player
+            //print_hand(&game_state.players[current_player_index].hand);
+            //print_hand(&game_state.players[current_player_index].open_hand);
+            //println!("hand is open: {:?}", game_state.players[current_player_index].hand_is_open());
+            current_player_index = next_player_index;
+        }
+    }
+
+    let mut uma_vector = vec![0; 4];
+    if UMA {
+        let mut sorted_players = players.to_vec();
+        sorted_players.sort_by_key(|p| Reverse(p.points));
+
+        let mut tied_players: HashMap<i32, Vec<usize>> = HashMap::new();
+
+        for (i, p) in sorted_players.iter().enumerate() {
+            let rank = i as i32 + 1;
+            let uma_points: i32 = 15000 - 10000 * (rank - 1);
+            uma_vector[p.id - 1] = uma_points;
+
+            let ids = tied_players.entry(p.points).or_insert(Vec::new());
+            ids.push(p.id);
+        }
+
+        let result: Vec<Vec<usize>> = tied_players.values().cloned().collect();
+        for res_vec in &result {
+            if res_vec.len() == 1 {
+                continue;
+            }
+            let mut uma_sum = 0;
+            for tied_player_id in res_vec {
+                uma_sum += &uma_vector[*tied_player_id - 1];
+            }
+            uma_sum = uma_sum / res_vec.len() as i32;
+            for tied_player_id in res_vec {
+                uma_vector[*tied_player_id - 1] = uma_sum;
+            }
+        }
+    }
+
+    let game_result = GameResult {
+        player_1_score: players[0].points + uma_vector[0],
+        player_2_score: players[1].points + uma_vector[1],
+        player_3_score: players[2].points + uma_vector[2],
+        player_4_score: players[3].points + uma_vector[3],
+    };
+
+    game_result
 }
 
 fn initialize_players() -> Vec<Player> {
@@ -300,7 +315,9 @@ fn kanchan_completor(strat: StrategyInput) -> usize {
         let tile = &partial_hand[tile_index];
         let right = &partial_hand[tile_index + 1];
 
-        if (tile.value + 1 == right.value || tile.value + 2 == right.value) && tile.suit == right.suit{
+        if (tile.value + 1 == right.value || tile.value + 2 == right.value)
+            && tile.suit == right.suit
+        {
             //keep the tile and the next tile
             skip_following = true;
             continue;
@@ -464,7 +481,7 @@ fn calculate_hand_score(
     let mut tanyao = true;
     let mut honitsu = true;
     let mut chinitsu = true;
-    
+
     let hand_suit = hand_copy[0].suit;
     if hand_suit == Suit::Kaze || hand_suit == Suit::Sangen {
         println!("Yakuman I guess:");
@@ -474,12 +491,16 @@ fn calculate_hand_score(
     for tile in &hand_copy {
         han_score += if tile.is_dora { 1 } else { 0 };
 
-        if tile.value == 1 || tile.value == 9 || tile.suit == Suit::Kaze || tile.suit == Suit::Sangen {
+        if tile.value == 1
+            || tile.value == 9
+            || tile.suit == Suit::Kaze
+            || tile.suit == Suit::Sangen
+        {
             tanyao = false;
         }
         if tile.suit != hand_suit {
             chinitsu = false;
-            if tile.suit != Suit::Kaze || tile.suit != Suit::Sangen{
+            if tile.suit != Suit::Kaze || tile.suit != Suit::Sangen {
                 honitsu = false;
             }
         }
