@@ -305,7 +305,7 @@ pub fn get_partial_completion(hand: &[MahjongTile]) -> Vec<MahjongTile> {
 
             for meld_index in 0..n_melds {
                 let meld2 = &pairs[(start_index + meld_index) % n_melds];
-                if meld2.len() == 2{
+                if meld2.len() == 2 {
                     pair_counter += 1;
                 }
                 if is_subset(&third_copy, meld2) {

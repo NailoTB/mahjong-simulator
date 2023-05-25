@@ -1,26 +1,21 @@
 # Mahjong Simulator
 
-Some ideas for general structure:
+This program is used to test different mahjong strategies against each other and see how well they perform. 
 
-Tile (Hai) struct:
-  + [enum] Suit (m, p, s, k, s)
-  + [const int] value (1 - 9) for m,p,s (1 - 4) for k and (1 - 3) for s
-  + [mut bool] dora
+Requirements:
+  * rust
+  * python
+  * latex
+  * others(?)
 
-Boardstate:
-  + [mut List[Hai]] Wall
-  + [mut List[Hai]] Deadwall
-  + [mut List[Hai]] DoraIndicator
-  + [mut int] Honba
-  + [mut int] Riichi sticks
-  + [mut int] Round Wind
-
-Player struct:
-  + [mut int] Points
-  + [mut int] Seat wind
-  + [mut List[Hai]] Hand
-  + [mut List[Hai]] Discards
-  + [const List[Strategy]] DiscardStrategies
-  + [const List[Strategy]] CallingStrategies
-  + [mut bool] Riichistate
-  + [mut bool] OpenHand
+### Basic usage:
+Create game data by running the core program. This simulates a lot of games and tallies up the points into `1000_games.dat`
+```
+cargo run --release
+```
+We can then plot our data into graphs to easily view how the strategies performed.
+```
+python distribution_plotter.py
+python cumulative_plotter.py
+```
+These graphs are generated in the project root directory with names `point_distribution_1000.png` and `game_plot` which you can admire with your favorite image viewer.

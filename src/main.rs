@@ -14,21 +14,14 @@ const UMA: bool = true;
 const TOBI: bool = false;
 fn main() {
     let start_time = Instant::now();
-    /*let mut game_results: Vec<GameResult> = Vec::new();
-    for game in 1..=GAMES {
+    let game_results: Vec<GameResult> = (0..=GAMES).par_bridge().map(|_| simulate_game()).collect();
 
-        let game_result = simulate_game();
-
-        game_results.push(game_result);
-    }*/
-
-    let game_results: Vec<GameResult> = (0..=GAMES)
-        .into_iter()
-        .par_bridge()
-        .map(|_| simulate_game())
-        .collect();
-
-    write_gameresults("1000_games.dat", &game_results);
+    match write_game_results("1000_games.dat", &game_results) {
+        Ok(()) => {}
+        Err(error) => {
+            println!("Error occured while writing game results: {}", error);
+        }
+    }
 
     println!("Program took {:.2?} to execute", start_time.elapsed());
 }
@@ -186,21 +179,19 @@ fn simulate_game() -> GameResult {
             for tied_player_id in res_vec {
                 uma_sum += &uma_vector[*tied_player_id - 1];
             }
-            uma_sum = uma_sum / res_vec.len() as i32;
+            uma_sum /= res_vec.len() as i32;
             for tied_player_id in res_vec {
                 uma_vector[*tied_player_id - 1] = uma_sum;
             }
         }
     }
 
-    let game_result = GameResult {
+    GameResult {
         player_1_score: players[0].points + uma_vector[0],
         player_2_score: players[1].points + uma_vector[1],
         player_3_score: players[2].points + uma_vector[2],
         player_4_score: players[3].points + uma_vector[3],
-    };
-
-    game_result
+    }
 }
 
 fn initialize_players() -> Vec<Player> {
@@ -650,13 +641,13 @@ fn round_up_to_10(number: i32) -> i32 {
     (number + 9) / 10 * 10
 }
 
-fn write_gameresults(filename: &str, gameresults: &Vec<GameResult>) -> Result<()> {
+fn write_game_results(filename: &str, gameresults: &Vec<GameResult>) -> Result<()> {
     let file = File::create(filename)?;
     let mut writer = BufWriter::new(file);
     for game in gameresults {
-        write!(
+        writeln!(
             &mut writer,
-            "{}, {}, {}, {}\n",
+            "{}, {}, {}, {}",
             game.player_1_score, game.player_2_score, game.player_3_score, game.player_4_score
         )?;
     }
